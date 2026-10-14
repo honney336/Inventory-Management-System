@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% from 'partials/_macros.html' import field, textarea, select %}
+
+{% block content %}
+<div class="card" style="max-width:640px">
+  <div class="card__head"><h2>{{ _('Adjust stock to a counted figure') }}</h2></div>
+  <div class="card__body">
+    <p class="help">
+      {{ _('Use this after a physical count. The difference between the system figure and your count goes into the ledger as an adjustment, so the trail stays explainable.') }}
+    </p>
+    <form method="post" class="stack">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {{ select('product_id', _('Product'), products, required=True, blank=_('Choose a product…')) }}
+      {{ select('warehouse_id', _('Warehouse'), warehouses, required=True, blank=_('Choose a warehouse…')) }}
+      {{ field('counted_quantity', _('Counted quantity'), '', 'number', min='0', required=True) }}
+      {{ textarea('note', _('Reason'), '', 3, hint=_('Damaged goods, shrinkage, recount correction…')) }}
+      <div class="form-actions">
+        <button class="btn" type="submit">{{ _('Post adjustment') }}</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

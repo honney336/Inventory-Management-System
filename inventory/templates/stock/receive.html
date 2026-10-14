@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+{% from 'partials/_macros.html' import field, textarea, select %}
+
+{% macro product_options(products) %}
+  {% for p in products %}
+  <option value="{{ p.id }}" data-cost="{{ p.cost|float }}" data-price="{{ p.price|float }}"
+          data-stock="{{ p.quantity }}"
+          data-batch="{{ 1 if p.track_batches else 0 }}"
+          data-shelf="{{ p.shelf_life_days or '' }}">{{ p.name }} — {{ p.sku }} ({{ p.quantity|qty }} {{ _('on hand') }})</option>
+  {% endfor %}
+{% endmacro %}
+
+{% block content %}
+<div class="grid grid--2">
+  <section class="card">
+    <div class="card__head"><h2>{{ _('Receive into stock') }}</h2></div>
+    <div class="card__body">
+      <form method="post" class="stack" id="receiveForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        {{ select('product_id', _('Product'), products, required=True, blank=_('Choose a product…')) }}
+        {{ select('warehouse_id', _('Warehouse'), warehouses, required=True, blank=_('Choose a warehouse…')) }}
+        {{ field('quantity', _('Quantity received'), 1, 'number', min='1', required=True) }}
+        {{ field('unit_cost', _('Unit cost (blank keeps the current cost)'), '', 'number',
+                 step='0.01', min='0',
+                 hint=_('Supplying a cost recalculates the weighted average cost.')) }}
+
+        <div class="batch-fields" id="batchFields" hidden>
+          {{ field('batch_no', _('Batch number'), '', 'text', 'B-2026-014') }}
+          {{ field('expiry_date', _('Expiry date'), '', 'date') }}
+          <p class="field__hint" id="shelfHint"></p>
+        </div>
+
+        {{ field('reference', _('Reference'), '', 'text', 'Delivery note 88214') }}
+        {{ textarea('note', _('Note'), '', 3) }}
+        <div class="form-actions">
+          <button class="btn btn--success" type="submit">{{ _('Post receipt') }}</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h2>{{ _('Customer return') }}</h2></div>
+    <div class="card__body">
+      <p class="muted">
+        {{ _('Book goods coming back from a customer. Returns increase stock without changing the average cost.') }}
+      </p>
+      <form method="post" action="{{ url_for('stock.customer_return') }}" class="stack">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        {{ select('product_id', _('Product'), products, required=True, blank=_('Choose a product…')) }}
+        {{ select('warehouse_id', _('Warehouse'), warehouses, required=True, blank=_('Choose a warehouse…')) }}
+        {{ field('quantity', _('Quantity returned'), 1, 'number', min='1', required=True) }}
+        {{ field('batch_no', _('Batch number (if known)'), '', 'text') }}
+        {{ field('expiry_date', _('Expiry date'), '', 'date') }}
+        {{ field('reference', _('Reference'), '', 'text', 'RMA-1042') }}
+        {{ textarea('note', _('Reason'), '', 3) }}
+        <div class="form-actions">
+          <button class="btn" type="submit">{{ _('Book return') }}</button>
+        </div>
+      </form>
+    </div>
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var form = document.getElementById('receiveForm');
+  if (!form) return;
+
+  var select = form.querySelector('[name="product_id"]');
+  var batchBox = document.getElementById('batchFields');
+  var batchNo = form.querySelector('[name="batch_no"]');
+  var expiry = form.querySelector('[name="expiry_date"]');
+  var shelfHint = document.getElementById('shelfHint');
+  var shelfTemplate = {{ _('Shelf life of {days} days pre-filled.')|tojson }};
+
+  function sync() {
+    var option = select.options[select.selectedIndex];
+    var tracked = option && option.dataset.batch === '1';
+    batchBox.hidden = !tracked;
+    batchNo.required = !!tracked;
+
+    var shelf = option ? parseInt(option.dataset.shelf || '0', 10) : 0;
+    expiry.min = new Date().toISOString().slice(0, 10);
+    if (shelf > 0 && !expiry.value) {
+      var date = new Date();
+      date.setDate(date.getDate() + shelf);
+      expiry.value = date.toISOString().slice(0, 10);
+    }
+    shelfHint.textContent = shelf > 0 ? shelfTemplate.replace('{days}', shelf) : '';
+  }
+
+  select.addEventListener('change', sync);
+  sync();
+});
+</script>
+{% endblock %}

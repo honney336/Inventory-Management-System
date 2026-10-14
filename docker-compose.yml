@@ -1,0 +1,52 @@
+services:
+  app:
+    build: .
+    image: inventory-system:latest
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    environment:
+      SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env before starting}
+      FLASK_CONFIG: production
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://inventory:inventory@db:5432/inventory}
+      DEFAULT_LOCALE: ${DEFAULT_LOCALE:-en}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+      SESSION_DAYS: ${SESSION_DAYS:-7}
+      ITEMS_PER_PAGE: ${ITEMS_PER_PAGE:-20}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-inventory}
+    volumes:
+      - app-data:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-inventory}
+      POSTGRES_USER: ${POSTGRES_USER:-inventory}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-inventory} -d ${POSTGRES_DB:-inventory}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: >
+      postgres -c max_connections=100
+               -c shared_buffers=256MB
+               -c log_min_duration_statement=500
+
+volumes:
+  app-data:
+  db-data:

@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="{{ active_locale }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title or company }} · {{ company }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>📦</text></svg>">
+  {% block head %}{% endblock %}
+</head>
+<body>
+<div class="layout {% if not current_user.is_authenticated %}layout--plain{% endif %}">
+
+  {% if current_user.is_authenticated %}
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar__brand">
+      <span class="sidebar__logo">◧</span>
+      <span class="sidebar__title">{{ company }}</span>
+    </div>
+
+    <nav class="sidebar__nav">
+      <span class="nav-section">{{ _('Overview') }}</span>
+      <a href="{{ url_for('dashboard.index') }}" class="nav-link {{ 'active' if nav_active.startswith('dashboard') }}">{{ _('Dashboard') }}</a>
+      <a href="{{ url_for('reports.index') }}" class="nav-link {{ 'active' if nav_active.startswith('reports') }}">{{ _('Reports') }}</a>
+      <a href="{{ url_for('scan.index') }}" class="nav-link {{ 'active' if nav_active.startswith('scan') }}">{{ _('Scan desk') }}</a>
+
+      <span class="nav-section">{{ _('Catalogue') }}</span>
+      <a href="{{ url_for('products.index') }}" class="nav-link {{ 'active' if nav_active.startswith('products') }}">{{ _('Products') }}</a>
+      <a href="{{ url_for('catalog.categories') }}" class="nav-link {{ 'active' if nav_active.startswith('catalog.categories') }}">{{ _('Categories') }}</a>
+      <a href="{{ url_for('catalog.suppliers') }}" class="nav-link {{ 'active' if nav_active.startswith('catalog.suppliers') }}">{{ _('Suppliers') }}</a>
+
+      <span class="nav-section">{{ _('Stock') }}</span>
+      <a href="{{ url_for('stock.movements') }}" class="nav-link {{ 'active' if nav_active.startswith('stock.movements') }}">{{ _('Movements') }}</a>
+      <a href="{{ url_for('stock.receive') }}" class="nav-link {{ 'active' if nav_active == 'stock.receive' }}">{{ _('Receive') }}</a>
+      <a href="{{ url_for('stock.issue') }}" class="nav-link {{ 'active' if nav_active == 'stock.issue' }}">{{ _('Issue') }}</a>
+      <a href="{{ url_for('stock.adjust_form') }}" class="nav-link {{ 'active' if nav_active == 'stock.adjust_form' }}">{{ _('Adjust') }}</a>
+      <a href="{{ url_for('stock.transfer') }}" class="nav-link {{ 'active' if nav_active == 'stock.transfer' }}">{{ _('Transfers') }}</a>
+      <a href="{{ url_for('warehouses.index') }}" class="nav-link {{ 'active' if nav_active.startswith('warehouses.index') }}">{{ _('Warehouses') }}</a>
+      <a href="{{ url_for('warehouses.stock_grid') }}" class="nav-link {{ 'active' if nav_active == 'warehouses.stock_grid' }}">{{ _('Stock grid') }}</a>
+
+      <span class="nav-section">{{ _('Orders') }}</span>
+      <a href="{{ url_for('purchasing.index') }}" class="nav-link {{ 'active' if nav_active.startswith('purchasing') }}">{{ _('Purchase orders') }}</a>
+      <a href="{{ url_for('sales.index') }}" class="nav-link {{ 'active' if nav_active.startswith('sales') }}">{{ _('Sales orders') }}</a>
+
+      {% if is_admin %}
+      <span class="nav-section">{{ _('Administration') }}</span>
+      <a href="{{ url_for('users.index') }}" class="nav-link {{ 'active' if nav_active.startswith('users') }}">{{ _('Users') }}</a>
+      <a href="{{ url_for('settings.index') }}" class="nav-link {{ 'active' if nav_active == 'settings.index' }}">{{ _('Settings') }}</a>
+      <a href="{{ url_for('settings.audit') }}" class="nav-link {{ 'active' if nav_active == 'settings.audit' }}">{{ _('Activity log') }}</a>
+      {% endif %}
+    </nav>
+
+    <div class="sidebar__footer">
+      <a href="{{ url_for('auth.profile') }}" class="nav-link nav-link--user">
+        <span class="avatar">{{ current_user.username[:2].upper() }}</span>
+        <span>
+          <strong>{{ current_user.full_name or current_user.username }}</strong>
+          <small>{{ current_user.role }}</small>
+        </span>
+      </a>
+    </div>
+  </aside>
+  {% endif %}
+
+  <div class="content">
+    {% if current_user.is_authenticated %}
+    <header class="topbar">
+      <button class="icon-btn topbar__burger" type="button" data-toggle-sidebar aria-label="{{ _('Toggle menu') }}">☰</button>
+      <h1 class="topbar__title">{{ title or _('Dashboard') }}</h1>
+      <div class="topbar__actions">
+        <form method="post" action="{{ url_for('i18n.switch_post', code='en') }}" class="lang-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="next" value="{{ request.full_path }}">
+          <label class="sr-only" for="lang-select">{{ _('Language') }}</label>
+          <select class="field__input field__input--sm" id="lang-select"
+                  onchange="this.form.submit()">
+            {% for code, label in locales.items() %}
+            <option value="{{ code }}" {{ 'selected' if code == active_locale }}>{{ label }}</option>
+            {% endfor %}
+          </select>
+          <noscript><button class="btn btn--ghost btn--sm" type="submit">{{ _('Change') }}</button></noscript>
+        </form>
+        {% block topbar_actions %}{% endblock %}
+        <form method="post" action="{{ url_for('auth.logout') }}" class="inline-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn--ghost btn--sm" type="submit">{{ _('Sign out') }}</button>
+        </form>
+      </div>
+    </header>
+    {% endif %}
+
+    <main class="main {% if not current_user.is_authenticated %}main--centered{% endif %}">
+      {% include 'partials/_flash.html' %}
+      {% block content %}{% endblock %}
+    </main>
+
+    {% if current_user.is_authenticated %}
+    <footer class="footer">
+      <span>{{ company }} · {{ _('inventory system') }}</span>
+      <span>{{ today|datestr }}</span>
+    </footer>
+    {% endif %}
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

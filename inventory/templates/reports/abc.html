@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+
+{% block topbar_actions %}
+<a class="btn btn--ghost btn--sm" href="{{ url_for('reports.export', report_key=report_key) }}">{{ _('Export CSV') }}</a>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card__head">
+    <h2>{{ reports[report_key].title }}</h2>
+    <span class="muted" style="font-size:.8rem">{{ _('based on recorded consumption value') }}</span>
+  </div>
+  <div class="card__body">
+    <p class="help">
+      <strong>A</strong> {{ _('items carry the first 80% of consumption value,') }}
+      <strong>B</strong> {{ _('the next 15%,') }}
+      <strong>C</strong> {{ _('the tail. Tight control on A, loose control on C.') }}
+    </p>
+  </div>
+  <div class="card__body card__body--flush">
+    <div class="table-wrap">
+      <table class="data">
+        <thead>
+          <tr>
+            <th>{{ _('Class') }}</th><th>{{ _('SKU') }}</th><th>{{ _('Product') }}</th>
+            <th class="num">{{ _('Units consumed') }}</th><th class="num">{{ _('Value') }}</th>
+            <th class="num">{{ _('Share') }}</th><th class="num">{{ _('Cumulative') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          <tr>
+            <td><span class="badge badge--{{ row.grade }}">{{ row.grade }}</span></td>
+            <td class="mono nowrap">{{ row.sku }}</td>
+            <td>{{ row.name }}</td>
+            <td class="num">{{ row.consumed|qty }}</td>
+            <td class="num">{{ row.value|money }}</td>
+            <td class="num">{{ row.share }}%</td>
+            <td class="num muted">{{ row.cumulative }}%</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7" class="muted">
+            {{ _('No outbound movements recorded yet, so there is nothing to classify.') }}
+          </td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

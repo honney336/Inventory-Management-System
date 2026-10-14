@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% from 'partials/_macros.html' import status_badge %}
+
+{% block topbar_actions %}
+<a class="btn btn--ghost btn--sm" href="{{ url_for('reports.export', report_key=report_key) }}">{{ _('Export CSV') }}</a>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card__head">
+    <h2>{{ reports[report_key].title }}</h2>
+    <form method="get" class="filters" style="align-items:center">
+      <label class="field">
+        <span class="field__label">{{ _('Warehouse') }}</span>
+        <select class="field__input" name="warehouse" onchange="this.form.submit()">
+          <option value="">{{ _('All') }}</option>
+          {% for w in warehouses %}
+          <option value="{{ w.id }}" {{ 'selected' if warehouse_id == w.id }}>{{ w.code }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </form>
+  </div>
+
+  <div class="card__body">
+    <div class="stats" style="margin:0">
+      <div class="stat"><div class="stat__label">{{ _('Stock at cost') }}</div>
+        <div class="stat__value">{{ total|money }}</div></div>
+      <div class="stat"><div class="stat__label">{{ _('Stock at retail') }}</div>
+        <div class="stat__value">{{ retail|money }}</div></div>
+      <div class="stat stat--good"><div class="stat__label">{{ _('Unrealised margin') }}</div>
+        <div class="stat__value">{{ potential_margin|money }}</div></div>
+    </div>
+  </div>
+
+  <div class="card__body card__body--flush">
+    <div class="table-wrap">
+      <table class="data">
+        <thead>
+          <tr>
+            <th>{{ _('SKU') }}</th><th>{{ _('Product') }}</th><th>{{ _('Category') }}</th>
+            <th class="num">{{ _('On hand') }}</th><th class="num">{{ _('Cost') }}</th>
+            <th class="num">{{ _('Value') }}</th><th class="num">{{ _('Price') }}</th>
+            <th class="num">{{ _('Retail value') }}</th><th>{{ _('Status') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in products %}
+          <tr>
+            <td class="mono nowrap">{{ p.sku }}</td>
+            <td><a href="{{ url_for('products.detail', product_id=p.id) }}">{{ p.name }}</a></td>
+            <td class="muted">{{ p.category.name if p.category else '—' }}</td>
+            <td class="num">{{ p.quantity|qty }}</td>
+            <td class="num">{{ p.cost|float|money }}</td>
+            <td class="num">{{ p.stock_value|money }}</td>
+            <td class="num">{{ p.price|float|money }}</td>
+            <td class="num">{{ p.retail_value|money }}</td>
+            <td>{{ status_badge(p.stock_status) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

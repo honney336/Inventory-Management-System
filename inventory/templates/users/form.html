@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% from 'partials/_macros.html' import field, select, checkbox %}
+
+{% block content %}
+<div class="card" style="max-width:640px">
+  <div class="card__head"><h2>{{ _('Edit user') if user else _('New user') }}</h2></div>
+  <div class="card__body stack">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% if user %}
+    <label class="field">
+      <span class="field__label">{{ _('Username') }}</span>
+      <input class="field__input" value="{{ user.username }}" disabled>
+    </label>
+    {{ field('full_name', _('Full name'), request.form.get('full_name', user.full_name or '')) }}
+    {{ field('email', _('Email address'), request.form.get('email', user.email or ''), 'email', required=True) }}
+    {{ select('role', _('Role'), roles, selected=request.form.get('role', user.role)) }}
+    {{ select('locale', _('Language'), locales.items() | list,
+              selected=request.form.get('locale', user.locale or ''),
+              blank=_('Browser default')) }}
+    {{ checkbox('is_active', _('Account active'), user.is_active) }}
+
+    <div class="form-actions">
+      <button class="btn" type="submit">{{ _('Save changes') }}</button>
+      <a class="btn btn--ghost" href="{{ url_for('users.index') }}">{{ _('Cancel') }}</a>
+    </div>
+    {% else %}
+    {{ field('full_name', _('Full name'), '', 'text', 'Sam Rivera') }}
+    {{ field('username', _('Username'), '', 'text', 'srivera', required=True) }}
+    {{ field('email', _('Email address'), '', 'email', required=True) }}
+    {{ select('role', _('Role'), roles, selected='staff') }}
+    {{ select('locale', _('Language'), locales.items() | list, blank=_('Browser default')) }}
+    {{ field('password', _('Initial password'), '', 'password',
+             hint=_('At least 8 characters.'), required=True) }}
+    <div class="form-actions">
+      <button class="btn" type="submit">{{ _('Create user') }}</button>
+      <a class="btn btn--ghost" href="{{ url_for('users.index') }}">{{ _('Cancel') }}</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% if user %}
+<section class="card" style="max-width:640px">
+  <div class="card__head"><h2>{{ _('Reset password') }}</h2></div>
+  <div class="card__body">
+    <form method="post" action="{{ url_for('users.reset_password', user_id=user.id) }}" class="stack">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {{ field('new_password', _('New password'), '', 'password', required=True) }}
+      <div class="form-actions">
+        <button class="btn btn--danger" type="submit">{{ _('Reset password') }}</button>
+      </div>
+    </form>
+  </div>
+</section>
+{% endif %}
+{% endblock %}

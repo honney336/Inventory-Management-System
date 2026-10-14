@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="card" style="max-width:460px;margin:60px auto 0">
+  <div class="card__body stack" style="text-align:center">
+    <h1 style="font-size:2rem;margin:0">403</h1>
+    <p class="muted">{{ message }}</p>
+    <a class="btn" href="{{ url_for('auth.login') }}">{{ _('Go to sign-in') }}</a>
+  </div>
+</div>
+{% endblock %}

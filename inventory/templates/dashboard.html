@@ -1,0 +1,275 @@
+{% extends 'base.html' %}
+{% from 'partials/_macros.html' import status_badge, expiry_badge, days_left %}
+
+{% block topbar_actions %}
+<form method="get" class="filters" style="align-items:center">
+  <label class="sr-only" for="warehouse-filter">{{ _('Warehouse') }}</label>
+  <select name="warehouse" id="warehouse-filter" class="field__input field__input--sm"
+          onchange="this.form.submit()">
+    <option value="">{{ _('All warehouses') }}</option>
+    {% for w in warehouses %}
+    <option value="{{ w.id }}" {{ 'selected' if warehouse_id == w.id }}>{{ w.code }} · {{ w.name }}</option>
+    {% endfor %}
+  </select>
+</form>
+<a class="btn btn--ghost btn--sm" href="{{ url_for('reports.index') }}">{{ _('Reports') }}</a>
+{% endblock %}
+
+{% block content %}
+<div class="stats">
+  <div class="stat">
+    <div class="stat__label">{{ _('Stock value at cost') }}</div>
+    <div class="stat__value">{{ stock_value|money }}</div>
+    <div class="stat__meta">{{ _('Retail {amount}').format(amount=retail_value|money) }}</div>
+  </div>
+  <div class="stat">
+    <div class="stat__label">{{ _('Units on hand') }}</div>
+    <div class="stat__value">{{ total_units|qty }}</div>
+    <div class="stat__meta">
+      {% if warehouse_id %}{{ _('in this warehouse: {count}').format(count=scoped_units|qty) }}
+      {% else %}{{ _('across {count} sites').format(count=warehouses|length) }}{% endif %}
+    </div>
+  </div>
+  <div class="stat {{ 'stat--danger' if out_of_stock else 'stat--warn' }}">
+    <div class="stat__label">{{ _('Below reorder point') }}</div>
+    <div class="stat__value">{{ low_stock|length }}</div>
+    <div class="stat__meta">{{ _('{count} completely out of stock').format(count=out_of_stock|length) }}</div>
+  </div>
+  <div class="stat">
+    <div class="stat__label">{{ _('Active products') }}</div>
+    <div class="stat__value">{{ active_products|qty }}</div>
+    <div class="stat__meta">{{ _('{count} suppliers').format(count=suppliers) }}</div>
+  </div>
+  <div class="stat stat--good">
+    <div class="stat__label">{{ _('Sales value, last 30 days') }}</div>
+    <div class="stat__value">{{ sales_30|money }}</div>
+    <div class="stat__meta">{{ _('{count} completed orders').format(count=sales_30_count) }}</div>
+  </div>
+  <div class="stat {{ 'stat--warn' if batches.expired or batches.expiring else '' }}">
+    <div class="stat__label">{{ _('Expiry watch') }}</div>
+    <div class="stat__value">{{ batches.batches|length }}</div>
+    <div class="stat__meta">
+      {% if batches.expired %}{{ _('{count} expired').format(count=batches.expired|length) }}
+      {% else %}{{ _('within {days} days').format(days=batch_warning_days) }}{% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="grid grid--2">
+  <section class="card">
+    <div class="card__head">
+      <h2>{{ _('Stock in and out, last 14 days') }}</h2>
+      <a class="link-muted" href="{{ url_for('stock.movements') }}">{{ _('All movements') }} →</a>
+    </div>
+    <div class="card__body">
+      <div class="chart-box"><canvas id="movementChart"></canvas></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head">
+      <h2>{{ _('Stock value by category') }}</h2>
+      <a class="link-muted" href="{{ url_for('reports.show', report_key='valuation') }}">{{ _('Valuation report') }} →</a>
+    </div>
+    <div class="card__body">
+      {% if category_chart %}
+      <div class="chart-box"><canvas id="categoryChart"></canvas></div>
+      {% else %}
+      <p class="muted">{{ _('No stock on hand yet.') }}</p>
+      {% endif %}
+    </div>
+  </section>
+</div>
+
+<div class="grid grid--2">
+  <section class="card">
+    <div class="card__head">
+      <h2>{{ _('Needs reordering') }}</h2>
+      <div class="btn-row">
+        <a class="btn btn--ghost btn--sm" href="{{ url_for('reports.show', report_key='reorder') }}">{{ _('Full report') }}</a>
+        {% if can_manage %}
+        <form method="post" action="{{ url_for('purchasing.from_low_stock') }}"
+              data-confirm="{{ _('Draft purchase orders for every supplier with low stock?') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="warehouse_id" value="{{ warehouse_id or '' }}">
+          <button class="btn btn--sm" type="submit">{{ _('Auto-order') }}</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    <div class="card__body card__body--flush">
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr><th>{{ _('Product') }}</th><th class="num">{{ _('On hand') }}</th><th class="num">{{ _('Par') }}</th><th>{{ _('Status') }}</th></tr>
+          </thead>
+          <tbody>
+            {% for product, on_hand in low_stock[:8] %}
+            <tr>
+              <td>
+                <a href="{{ url_for('products.detail', product_id=product.id) }}">{{ product.name }}</a>
+                <div class="link-muted mono">{{ product.sku }}</div>
+              </td>
+              <td class="num">{{ on_hand|qty }}</td>
+              <td class="num muted">{{ product.reorder_point|qty }}</td>
+              <td>{{ status_badge(product.stock_status) }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="muted">{{ _('Every active product is above its reorder point.') }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head">
+      <h2>{{ _('Expiry watch') }}</h2>
+      <a class="link-muted" href="{{ url_for('reports.show', report_key='expiry') }}">{{ _('Expiry report') }} →</a>
+    </div>
+    <div class="card__body card__body--flush">
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr><th>{{ _('Batch') }}</th><th class="num">{{ _('Qty') }}</th><th>{{ _('Expiry') }}</th><th>{{ _('State') }}</th></tr>
+          </thead>
+          <tbody>
+            {% for batch in batches.batches[:8] %}
+            <tr>
+              <td>
+                <a href="{{ url_for('products.detail', product_id=batch.product_id) }}">{{ batch.product.name if batch.product else '—' }}</a>
+                <div class="link-muted mono">{{ batch.batch_no }}</div>
+              </td>
+              <td class="num">{{ batch.quantity|qty }}</td>
+              <td class="nowrap">{{ batch.expiry_date|datestr }}</td>
+              <td>{{ expiry_badge(batch) }} <small class="muted">{{ days_left(batch) }}</small></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="muted">{{ _('No batch tracked stock is near its expiry date.') }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="grid grid--2">
+  <section class="card">
+    <div class="card__head">
+      <h2>{{ _('Best sellers, last 90 days') }}</h2>
+      <a class="link-muted" href="{{ url_for('reports.show', report_key='abc') }}">{{ _('ABC analysis') }} →</a>
+    </div>
+    <div class="card__body">
+      {% set peak = top_sellers[0][1] if top_sellers else 1 %}
+      <div class="bar-list">
+        {% for name, units, revenue in top_sellers %}
+        <div class="bar-item">
+          <span title="{{ name }}">{{ name[:22] }}{{ '…' if name|length > 22 else '' }}</span>
+          <span class="bar-item__track">
+            <span class="bar-item__fill" style="width: {{ (units / peak * 100)|round|int if peak else 0 }}%"></span>
+          </span>
+          <span class="bar-item__value">{{ units|qty }} · {{ revenue|money }}</span>
+        </div>
+        {% else %}
+        <p class="muted">{{ _('No completed sales in this window.') }}</p>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head">
+      <h2>{{ _('Latest stock movements') }}</h2>
+      <span class="muted" style="font-size:.8rem">
+        {{ _('{count} adjustments in 30 days').format(count=adjustments) }}
+      </span>
+    </div>
+    <div class="card__body card__body--flush">
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr>
+              <th>{{ _('When') }}</th><th>{{ _('Product') }}</th><th>{{ _('Type') }}</th><th>{{ _('Warehouse') }}</th>
+              <th class="num">{{ _('Change') }}</th><th class="num">{{ _('Balance') }}</th><th>{{ _('Reference') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for m in recent_movements %}
+            <tr>
+              <td class="nowrap muted">{{ m.created_at|dt }}</td>
+              <td>
+                <a href="{{ url_for('products.detail', product_id=m.product_id) }}">{{ m.product.name if m.product else '—' }}</a>
+                {% if m.batch %}<div class="link-muted mono">{{ m.batch.batch_no }}</div>{% endif %}
+              </td>
+              <td><span class="badge">{{ m.move_type|replace('_', ' ') }}</span></td>
+              <td class="muted">{{ m.warehouse.code if m.warehouse else '—' }}</td>
+              <td class="num {{ 'pos' if m.quantity > 0 else 'neg' }}">{{ '%+d'|format(m.quantity) }}</td>
+              <td class="num">{{ m.balance_after|qty }}</td>
+              <td class="mono muted">{{ m.reference or '—' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" class="muted">{{ _('No movements recorded yet.') }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  if (typeof Chart === 'undefined') return;
+  Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+  Chart.defaults.color = '#64748b';
+
+  var movement = document.getElementById('movementChart');
+  if (movement) {
+    new Chart(movement, {
+      type: 'bar',
+      data: {
+        labels: {{ chart.labels|tojson }},
+        datasets: [
+          { label: {{ _('In')|tojson }}, data: {{ chart.inbound|tojson }}, backgroundColor: '#10b981', borderRadius: 3 },
+          { label: {{ _('Out')|tojson }}, data: {{ chart.outbound|tojson }}, backgroundColor: '#f87171', borderRadius: 3 }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: {
+          y: { beginAtZero: true, grid: { color: '#e2e8f0' }, ticks: { precision: 0 } },
+          x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkipPadding: 12 } }
+        },
+        plugins: { legend: { position: 'bottom' } }
+      }
+    });
+  }
+
+  var category = document.getElementById('categoryChart');
+  if (category) {
+    new Chart(category, {
+      type: 'doughnut',
+      data: {
+        labels: {{ category_chart | map(attribute=0) | list | tojson }},
+        datasets: [{
+          data: {{ category_chart | map(attribute=1) | list | tojson }},
+          backgroundColor: ['#2563eb', '#0ea5e9', '#14b8a6', '#f59e0b', '#8b5cf6', '#ec4899', '#64748b', '#22c55e'],
+          borderWidth: 0
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false, cutout: '58%',
+        plugins: {
+          legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } }
+        }
+      }
+    });
+  }
+});
+</script>
+{% endblock %}

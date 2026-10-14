@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+
+{% block topbar_actions %}
+<a class="btn btn--ghost btn--sm" href="{{ url_for('reports.export', report_key=report_key) }}">{{ _('Export CSV') }}</a>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card__head">
+    <h2>{{ reports[report_key].title }}</h2>
+    <span class="muted" style="font-size:.8rem">
+      {{ _('Bucketed by days since the last outbound movement') }}
+    </span>
+  </div>
+  <div class="card__body card__body--flush">
+    <div class="table-wrap">
+      <table class="data">
+        <thead>
+          <tr>
+            <th>{{ _('Bucket') }}</th><th class="num">{{ _('Units') }}</th>
+            <th class="num">{{ _('Value at cost') }}</th><th class="num">{{ _('Share') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% set total_value = rows|map(attribute=2)|sum %}
+          {% for label, units, value in rows %}
+          <tr>
+            <td>{{ label }}</td>
+            <td class="num">{{ units|qty }}</td>
+            <td class="num">{{ value|money }}</td>
+            <td class="num muted">{{ (value / total_value * 100)|round(1) if total_value else 0 }}%</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td><strong>{{ _('Total') }}</strong></td>
+            <td class="num"><strong>{{ rows|map(attribute=1)|sum|qty }}</strong></td>
+            <td class="num"><strong>{{ total_value|money }}</strong></td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+  <div class="card__foot">
+    <p class="muted" style="margin:0;font-size:.84rem">
+      {{ _('Stock that has never moved out sits in the 90+ bucket. That is the pile to discount, bundle or write down before it ages into obsolescence.') }}
+    </p>
+  </div>
+</div>
+{% endblock %}

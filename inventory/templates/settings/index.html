@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% from 'partials/_macros.html' import field, checkbox, select %}
+
+{% block content %}
+<form method="post" class="card" style="max-width:720px">
+  <div class="card__head"><h2>{{ _('System settings') }}</h2></div>
+  <div class="card__body stack">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="form-section">
+      <h3>{{ _('Organisation') }}</h3>
+      <div class="form-grid">
+        {{ field('company_name', _('Organisation name'), values.company_name, 'text',
+                 hint=_('Shown in the header and on printed labels.')) }}
+        {{ field('currency_symbol', _('Currency symbol'), values.currency_symbol, 'text', '$ / € / ¥') }}
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h3>{{ _('Language') }}</h3>
+      {{ select('default_locale', _('Default language'), locales.items() | list,
+                selected=values.default_locale,
+                hint=_('Used when a visitor has not chosen a language and no user preference is set.')) }}
+    </div>
+
+    <div class="form-section">
+      <h3>{{ _('Stock control') }}</h3>
+      <div class="form-grid">
+        {{ field('low_stock_threshold', _('Default low stock threshold'), values.low_stock_threshold,
+                 'number', min='0',
+                 hint=_('Used when a product has no reorder point of its own.')) }}
+        {{ field('default_lead_time_days', _('Default supplier lead time'), values.default_lead_time_days,
+                 'number', min='0',
+                 hint=_('Days added to today when the auto-order run drafts purchase orders.')) }}
+        {{ field('service_level', _('Service level target (%)'), values.service_level, 'number', min='50',
+                 hint=_('50, 80, 90, 95, 98 or 99. Drives the safety stock calculation.')) }}
+        {{ field('review_period_days', _('Stock review period'), values.review_period_days, 'number', min='1',
+                 hint=_('How often stock is counted, used to size order quantities.')) }}
+        {{ field('expiry_warning_days', _('Expiry warning window'), values.expiry_warning_days, 'number', min='1',
+                 hint=_('Batches inside this window appear on the expiry watch.')) }}
+      </div>
+      {{ checkbox('allow_negative_stock', _('Allow stock to go negative (normally off)'),
+                  values.allow_negative_stock in ['1', 'true', 'yes', 'on']) }}
+    </div>
+
+    <div class="form-section">
+      <h3>{{ _('Notifications') }}</h3>
+      {{ field('notify_webhook_url', _('Webhook URL'), values.notify_webhook_url, 'text',
+               'https://hooks.example.com/inventory',
+               hint=_('Low stock, out of stock and expiry events are POSTed here as JSON. Leave blank to only log them. Only public http and https addresses are accepted.')) }}
+    </div>
+
+    <div class="form-actions">
+      <button class="btn" type="submit">{{ _('Save settings') }}</button>
+      <a class="btn btn--ghost" href="{{ url_for('settings.audit') }}">{{ _('Activity log') }}</a>
+      <a class="btn btn--ghost" href="{{ url_for('settings.about') }}">{{ _('System information') }}</a>
+    </div>
+  </div>
+</form>
+{% endblock %}

@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+{% from 'partials/_macros.html' import field, textarea, select, checkbox %}
+
+{% set is_edit = product is not none %}
+{% set v = request.form %}
+
+{% macro val(name, fallback='') %}
+  {%- set raw = v.get(name) if (v and name in v) else none -%}
+  {%- if raw not in [none, ''] -%}{{ raw }}
+  {%- elif is_edit -%}{{ product|attr(name) if product|attr(name) is not none else fallback }}
+  {%- else -%}{{ fallback }}{%- endif -%}
+{% endmacro %}
+
+{% block content %}
+<form method="post" class="stack">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+  <section class="card">
+    <div class="card__head"><h2>{{ _('Identification') }}</h2></div>
+    <div class="card__body">
+      <div class="form-grid">
+        {{ field('sku', _('SKU'), val('sku'), 'text', 'ELEC-1007', required=True) }}
+        {{ field('barcode', _('Barcode / EAN'), val('barcode'), 'text', '5012345678900') }}
+        {{ field('name', _('Product name'), val('name'), 'text', 'USB-C Hub 7-in-1', required=True) }}
+        {{ field('location_bin', _('Bin location'), val('location_bin'), 'text', 'A-12') }}
+        <div class="field--wide">
+          {{ textarea('description', _('Description'), val('description')) }}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h2>{{ _('Classification') }}</h2></div>
+    <div class="card__body">
+      <div class="form-grid">
+        {{ select('category_id', _('Category'), categories,
+                  selected=val('category_id')|int if val('category_id') else None,
+                  blank=_('Uncategorised')) }}
+        {{ select('supplier_id', _('Supplier'), suppliers,
+                  selected=val('supplier_id')|int if val('supplier_id') else None,
+                  blank=_('No supplier')) }}
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h2>{{ _('Pricing and reorder rules') }}</h2></div>
+    <div class="card__body">
+      <div class="form-grid">
+        {{ field('cost', _('Unit cost'), val('cost', '0.00'), 'number', step='0.01', min='0') }}
+        {{ field('price', _('Unit price'), val('price', '0.00'), 'number', step='0.01', min='0') }}
+        {{ field('tax_rate', _('Tax rate %'), val('tax_rate', '0'), 'number', step='0.01', min='0') }}
+        {{ field('unit', _('Unit of measure'), val('unit', 'each'), 'text', _('each, box, ream, kg')) }}
+        {{ field('reorder_point', _('Reorder point'), val('reorder_point', '0'), 'number', min='0',
+                 hint=_('Flag the product as low at or below this quantity')) }}
+        {{ field('reorder_quantity', _('Reorder quantity'), val('reorder_quantity', '1'), 'number', min='1',
+                 hint=_('Default quantity used by the auto-order run')) }}
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head">
+      <h2>{{ _('Batch tracking') }}</h2>
+      <span class="muted" style="font-size:.8rem">{{ _('for consumables with expiry dates') }}</span>
+    </div>
+    <div class="card__body stack">
+      {{ checkbox('track_batches', _('Track batches and expiry dates'),
+                  val('track_batches')|int != 0 if is_edit else false) }}
+      <div class="form-grid">
+        {{ field('shelf_life_days', _('Shelf life (days)'), val('shelf_life_days', ''), 'number', min='0',
+                 hint=_('Optional. Used to pre-fill expiry dates on receipts.')) }}
+      </div>
+      <p class="help">
+        {{ _('When batch tracking is on, every receipt needs a batch number. Issues then pick the batch with the earliest expiry date first, so nothing perishable is left sitting.') }}
+      </p>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__body">
+      {{ checkbox('is_active', _('Active — available for new orders and sales'),
+                  val('is_active')|int != 0 if is_edit else true) }}
+      <div class="form-actions">
+        <button class="btn" type="submit">{{ _('Save changes') if is_edit else _('Create product') }}</button>
+        <a class="btn btn--ghost" href="{{ url_for('products.detail', product_id=product.id) if is_edit else url_for('products.index') }}">{{ _('Cancel') }}</a>
+      </div>
+    </div>
+  </section>
+</form>
+{% endblock %}

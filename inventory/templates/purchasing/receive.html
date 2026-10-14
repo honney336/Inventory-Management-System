@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+{% from 'partials/_macros.html' import textarea %}
+
+{% block topbar_actions %}
+<a class="btn btn--ghost btn--sm" href="{{ url_for('purchasing.detail', order_id=order.id) }}">{{ _('Back to order') }}</a>
+{% endblock %}
+
+{% block content %}
+<form method="post" class="card">
+  <div class="card__head">
+    <h2>{{ _('Receive') }} {{ order.number }}</h2>
+    <span class="muted" style="font-size:.8rem">{{ _('Into {warehouse}').format(warehouse=order.warehouse.name) }}</span>
+  </div>
+
+  <div class="card__body card__body--flush">
+    <div class="table-wrap">
+      <table class="line-items">
+        <thead>
+          <tr>
+            <th>{{ _('Product') }}</th>
+            <th class="num">{{ _('Ordered') }}</th>
+            <th class="num">{{ _('Outstanding') }}</th>
+            <th class="num">{{ _('Receive now') }}</th>
+            <th class="num">{{ _('Unit cost') }}</th>
+            <th>{{ _('Batch and expiry') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for line in order.lines %}
+          <tr data-line-row>
+            <td>
+              <strong>{{ line.product.name }}</strong>
+              <div class="link-muted mono">{{ line.product.sku }}</div>
+              <small class="muted">{{ _('on hand now: {count}').format(count=line.product.quantity|qty) }}</small>
+            </td>
+            <td class="num">{{ line.quantity|qty }}</td>
+            <td class="num">{{ line.outstanding|qty }}</td>
+            <td class="num">
+              <input type="number" name="qty_{{ line.id }}" min="0" max="{{ line.outstanding }}"
+                     value="{{ line.outstanding }}" style="text-align:right"
+                     {{ 'disabled' if line.outstanding <= 0 }}>
+            </td>
+            <td class="num">
+              <input type="number" step="0.01" min="0" name="cost_{{ line.id }}"
+                     value="{{ line.unit_cost|float }}" style="text-align:right">
+            </td>
+            <td>
+              {% if line.product.track_batches %}
+                <input type="text" name="batch_{{ line.id }}" placeholder="{{ _('Batch number') }}"
+                       required style="text-align:left">
+                <input type="date" name="expiry_{{ line.id }}" style="text-align:left;margin-top:4px">
+              {% else %}
+                <span class="muted">{{ _('Not batch tracked') }}</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card__body">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <p class="help">
+      {{ _('Receiving updates the on-hand quantity and recalculates the weighted average cost of each product. Partial receipts are fine: the order stays open until every line is settled.') }}
+    </p>
+    {{ textarea('note', _('Note'), '', 2, hint=_('Delivery note number, carrier, who unloaded…')) }}
+    <div class="form-actions">
+      <button class="btn btn--success" type="submit">{{ _('Post receipt') }}</button>
+      <a class="btn btn--ghost" href="{{ url_for('purchasing.detail', order_id=order.id) }}">{{ _('Cancel') }}</a>
+    </div>
+  </div>
+</form>
+{% endblock %}

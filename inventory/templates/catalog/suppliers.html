@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+{% from 'partials/_macros.html' import confirm_form, status_badge %}
+
+{% block topbar_actions %}
+{% if can_manage %}<a class="btn btn--sm" href="{{ url_for('catalog.supplier_create') }}">{{ _('New supplier') }}</a>{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card__body">
+    <form method="get" class="filters">
+      <label class="field field--grow">
+        <span class="field__label">{{ _('Search') }}</span>
+        <input class="field__input" type="search" name="q" value="{{ term }}"
+               placeholder="{{ _('Supplier name') }}">
+      </label>
+      <div class="filters__actions">
+        <button class="btn btn--sm" type="submit">{{ _('Search') }}</button>
+        <a class="btn btn--ghost btn--sm" href="{{ url_for('catalog.suppliers') }}">{{ _('Reset') }}</a>
+      </div>
+    </form>
+  </div>
+
+  <div class="card__body card__body--flush">
+    <div class="table-wrap">
+      <table class="data">
+        <thead>
+          <tr>
+            <th>{{ _('Supplier') }}</th><th>{{ _('Contact') }}</th><th>{{ _('Lead time') }}</th>
+            <th class="num">{{ _('Products') }}</th><th>{{ _('State') }}</th>
+            <th class="actions">{{ _('Actions') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for supplier, product_count in rows %}
+          <tr>
+            <td>
+              <strong>{{ supplier.name }}</strong>
+              {% if supplier.email %}<div class="link-muted">{{ supplier.email }}</div>{% endif %}
+            </td>
+            <td class="muted">
+              {{ supplier.contact_name or '—' }}
+              {% if supplier.phone %}<div>{{ supplier.phone }}</div>{% endif %}
+            </td>
+            <td>{{ _('{count} days').format(count=supplier.lead_time_days) }}</td>
+            <td class="num"><a href="{{ url_for('products.index', supplier=supplier.id) }}">{{ product_count }}</a></td>
+            <td>{{ status_badge('active' if supplier.is_active else 'inactive') }}</td>
+            <td class="actions">
+              <span class="row-actions">
+                <a class="btn btn--ghost btn--sm" href="{{ url_for('purchasing.index') }}">{{ _('Orders') }}</a>
+                {% if can_manage %}
+                <a class="btn btn--ghost btn--sm" href="{{ url_for('catalog.supplier_edit', supplier_id=supplier.id) }}">{{ _('Edit') }}</a>
+                {% if can_delete %}
+                {{ confirm_form(url_for('catalog.supplier_delete', supplier_id=supplier.id), _('Delete'),
+                                _('Delete this supplier? Suppliers with history are deactivated instead.')) }}
+                {% endif %}
+                {% endif %}
+              </span>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" class="muted">{{ _('No suppliers recorded yet.') }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

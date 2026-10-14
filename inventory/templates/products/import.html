@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="grid grid--2">
+  <section class="card">
+    <div class="card__head"><h2>{{ _('Upload a CSV') }}</h2></div>
+    <div class="card__body">
+      <form method="post" enctype="multipart/form-data" class="stack">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label class="field">
+          <span class="field__label">{{ _('CSV file') }} <em>*</em></span>
+          <input class="field__input" type="file" name="file" accept=".csv,text/csv" required>
+          <span class="field__hint">{{ _('Maximum 5 MB. One product per row.') }}</span>
+        </label>
+        <label class="check">
+          <input type="checkbox" name="update_existing" value="1" checked>
+          <span>{{ _('Overwrite existing products with a matching SKU') }}</span>
+        </label>
+        <div class="form-actions">
+          <button class="btn" type="submit">{{ _('Run import') }}</button>
+          <a class="btn btn--ghost" href="{{ url_for('products.index') }}">{{ _('Cancel') }}</a>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h2>{{ _('Expected columns') }}</h2></div>
+    <div class="card__body stack">
+      <p class="help">
+        <strong>sku</strong> {{ _('and') }} <strong>name</strong> {{ _('are required. Everything else is optional; unknown columns are ignored.') }}
+      </p>
+      <table class="data">
+        <thead><tr><th>{{ _('Column') }}</th><th>{{ _('Notes') }}</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">sku</td><td>{{ _('Required, must be unique') }}</td></tr>
+          <tr><td class="mono">name</td><td>{{ _('Required') }}</td></tr>
+          <tr><td class="mono">barcode</td><td>{{ _('EAN / UPC used by the scan desk') }}</td></tr>
+          <tr><td class="mono">category</td><td>{{ _('Created on the fly if new') }}</td></tr>
+          <tr><td class="mono">cost, price</td><td>{{ _('Decimal values') }}</td></tr>
+          <tr><td class="mono">reorder_point</td><td>{{ _('Integer') }}</td></tr>
+          <tr><td class="mono">reorder_quantity</td><td>{{ _('Integer') }}</td></tr>
+          <tr><td class="mono">unit, location_bin, description</td><td>{{ _('Free text') }}</td></tr>
+        </tbody>
+      </table>
+      <pre class="mono" style="background:var(--surface-2);padding:12px;border-radius:6px;overflow:auto">sku,name,barcode,category,cost,price,reorder_point
+ELEC-1007,USB-C Hub 7-in-1,5012345678901,Electronics,14.20,39.99,15
+OFF-2010,A5 Notebook,5012345678918,Office Supplies,1.80,5.50,40</pre>
+    </div>
+  </section>
+</div>
+{% endblock %}

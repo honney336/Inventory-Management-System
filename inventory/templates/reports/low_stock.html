@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+{% from 'partials/_macros.html' import status_badge %}
+
+{% block topbar_actions %}
+<a class="btn btn--ghost btn--sm" href="{{ url_for('reports.export', report_key=report_key) }}">{{ _('Export CSV') }}</a>
+{% if can_manage %}
+<form method="post" action="{{ url_for('purchasing.from_low_stock') }}"
+      data-confirm="{{ _('Draft purchase orders for every supplier shown here?') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="warehouse_id" value="{{ warehouse_id or '' }}">
+  <button class="btn btn--sm" type="submit">{{ _('Create purchase orders') }}</button>
+</form>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card__head">
+    <h2>{{ reports[report_key].title }}</h2>
+    <form method="get" class="filters" style="align-items:center">
+      <label class="field">
+        <span class="field__label">{{ _('Warehouse') }}</span>
+        <select class="field__input" name="warehouse" onchange="this.form.submit()">
+          <option value="">{{ _('All') }}</option>
+          {% for w in warehouses %}
+          <option value="{{ w.id }}" {{ 'selected' if warehouse_id == w.id }}>{{ w.code }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </form>
+  </div>
+
+  <div class="card__body">
+    <div class="stats" style="margin:0">
+      <div class="stat stat--warn"><div class="stat__label">{{ _('Products below par') }}</div>
+        <div class="stat__value">{{ rows|length }}</div></div>
+      <div class="stat"><div class="stat__label">{{ _('Suppliers involved') }}</div>
+        <div class="stat__value">{{ reorder_plan|length }}</div></div>
+      <div class="stat"><div class="stat__label">{{ _('Estimated restock cost') }}</div>
+        <div class="stat__value">{{ estimated_cost|money }}</div></div>
+    </div>
+  </div>
+
+  <div class="card__body card__body--flush">
+    <div class="table-wrap">
+      <table class="data">
+        <thead>
+          <tr>
+            <th>{{ _('SKU') }}</th><th>{{ _('Product') }}</th><th>{{ _('Supplier') }}</th>
+            <th class="num">{{ _('On hand') }}</th><th class="num">{{ _('Par') }}</th>
+            <th class="num">{{ _('Suggested') }}</th><th class="num">{{ _('Unit cost') }}</th>
+            <th class="num">{{ _('Line cost') }}</th><th>{{ _('Status') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for product, on_hand in rows %}
+          <tr>
+            <td class="mono nowrap">{{ product.sku }}</td>
+            <td><a href="{{ url_for('products.detail', product_id=product.id) }}">{{ product.name }}</a></td>
+            <td class="muted">{{ product.supplier.name if product.supplier else '—' }}</td>
+            <td class="num">{{ on_hand|qty }}</td>
+            <td class="num muted">{{ product.reorder_point|qty }}</td>
+            <td class="num">{{ product.suggested_order_qty|qty }}</td>
+            <td class="num">{{ product.cost|float|money }}</td>
+            <td class="num">{{ (product.suggested_order_qty * (product.cost|float))|money }}</td>
+            <td>{{ status_badge(product.stock_status) }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="9" class="muted">{{ _('Every product is at or above its reorder point.') }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% if reorder_plan %}
+<section class="card">
+  <div class="card__head"><h2>{{ _('Suggested reorder plan') }}</h2></div>
+  <div class="card__body card__body--flush">
+    <div class="table-wrap">
+      <table class="data">
+        <thead>
+          <tr>
+            <th>{{ _('Supplier') }}</th><th class="num">{{ _('Products') }}</th>
+            <th>{{ _('Items') }}</th><th class="num">{{ _('Lead time') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for supplier, products in reorder_plan %}
+          <tr>
+            <td><strong>{{ supplier.name }}</strong></td>
+            <td class="num">{{ products|length }}</td>
+            <td class="muted">
+              {% for p in products[:6] %}{{ p.sku }}{% if not loop.last %}, {% endif %}{% endfor %}
+              {% if products|length > 6 %}{{ _('and {count} more').format(count=products|length - 6) }}{% endif %}
+            </td>
+            <td class="num">{{ _('{count} days').format(count=supplier.lead_time_days) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{% endif %}
+{% endblock %}

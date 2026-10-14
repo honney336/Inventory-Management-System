@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% from 'partials/_macros.html' import field, checkbox %}
+
+{% block content %}
+<div class="auth-card">
+  <h1>{{ company }}</h1>
+  <p class="auth-card__sub">{{ _('Sign in to the inventory system') }}</p>
+
+  <form method="post" class="stack">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {{ field('identity', _('Username or email'), request.args.get('identity', ''), 'text',
+             'admin', required=True) }}
+    {{ field('password', _('Password'), '', 'password', required=True) }}
+    {{ checkbox('remember', _('Keep me signed in on this device')) }}
+    <button class="btn btn--block" type="submit">{{ _('Sign in') }}</button>
+  </form>
+
+  <div class="lang-row">
+    {% for code, label in locales.items() %}
+    <a class="lang-link {{ 'active' if code == active_locale }}"
+       href="{{ url_for('i18n.switch', code=code, next=request.full_path) }}">{{ label }}</a>
+    {% endfor %}
+  </div>
+
+  <p class="muted" style="text-align:center;margin-top:18px;font-size:.8rem">
+    {{ _('Locked out? Ask an administrator to reset your password.') }}
+  </p>
+</div>
+{% endblock %}

@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+
+{% block topbar_actions %}
+<a class="btn btn--ghost btn--sm" href="{{ url_for('stock.movements') }}">{{ _('All movements') }}</a>
+<a class="btn btn--ghost btn--sm" href="{{ url_for('stock.movements_csv') }}">{{ _('Export CSV') }}</a>
+{% endblock %}
+
+{% block content %}
+<div class="stats">
+  <div class="stat stat--good">
+    <div class="stat__label">{{ _('Received in window') }}</div>
+    <div class="stat__value">{{ inbound|qty }}</div>
+  </div>
+  <div class="stat stat--danger">
+    <div class="stat__label">{{ _('Issued in window') }}</div>
+    <div class="stat__value">{{ outbound|qty }}</div>
+  </div>
+  <div class="stat">
+    <div class="stat__label">{{ _('Net movement') }}</div>
+    <div class="stat__value">{{ (inbound - outbound)|qty }}</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card__body">
+    <form method="get" class="filters">
+      <label class="field field--grow">
+        <span class="field__label">{{ _('Search') }}</span>
+        <input class="field__input" type="search" name="q" value="{{ term }}"
+               placeholder="{{ _('Product, reference or note') }}">
+      </label>
+      <label class="field">
+        <span class="field__label">{{ _('Type') }}</span>
+        <select class="field__input" name="type">
+          <option value="">{{ _('All types') }}</option>
+          {% for t in move_types %}
+          <option value="{{ t }}" {{ 'selected' if selected_type == t }}>{{ t|replace('_', ' ') }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="field">
+        <span class="field__label">{{ _('Warehouse') }}</span>
+        <select class="field__input" name="warehouse">
+          <option value="">{{ _('All') }}</option>
+          {% for w in warehouses %}
+          <option value="{{ w.id }}" {{ 'selected' if warehouse_id == w.id }}>{{ w.code }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="field">
+        <span class="field__label">{{ _('Period') }}</span>
+        <select class="field__input" name="window">
+          {% for value, label in [('today', _('Today')), ('7', _('7 days')), ('30', _('30 days')),
+                                  ('90', _('90 days')), ('365', _('12 months')), ('all', _('All time'))] %}
+          <option value="{{ value }}" {{ 'selected' if window == value }}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <div class="filters__actions">
+        <button class="btn btn--sm" type="submit">{{ _('Apply') }}</button>
+        <a class="btn btn--ghost btn--sm" href="{{ url_for('stock.movements') }}">{{ _('Reset') }}</a>
+      </div>
+    </form>
+  </div>
+
+  <div class="card__body card__body--flush">
+    <div class="table-wrap">
+      <table class="data">
+        <thead>
+          <tr>
+            <th>{{ _('When') }}</th><th>{{ _('Product') }}</th><th>{{ _('Type') }}</th>
+            <th>{{ _('Warehouse') }}</th><th>{{ _('Batch') }}</th>
+            <th class="num">{{ _('Change') }}</th><th class="num">{{ _('Balance') }}</th>
+            <th>{{ _('Reference') }}</th><th>{{ _('Note') }}</th><th>{{ _('User') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in movements %}
+          <tr>
+            <td class="nowrap muted">{{ m.created_at|dt }}</td>
+            <td>
+              <a href="{{ url_for('products.detail', product_id=m.product_id) }}">{{ m.product.name if m.product else '—' }}</a>
+              <div class="link-muted mono">{{ m.product.sku if m.product else '' }}</div>
+            </td>
+            <td><span class="badge">{{ m.move_type|replace('_', ' ') }}</span></td>
+            <td class="muted">{{ m.warehouse.code if m.warehouse else '—' }}</td>
+            <td class="mono muted">{{ m.batch.batch_no if m.batch else '—' }}</td>
+            <td class="num {{ 'pos' if m.quantity > 0 else 'neg' }}">{{ '%+d'|format(m.quantity) }}</td>
+            <td class="num">{{ m.balance_after|qty }}</td>
+            <td class="mono muted">{{ m.reference or '—' }}</td>
+            <td class="muted">{{ m.note or '—' }}</td>
+            <td class="muted">{{ m.user.username if m.user else 'system' }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="10" class="muted">{{ _('No movements match those filters.') }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% include 'partials/_pagination.html' %}
+  </div>
+</div>
+{% endblock %}

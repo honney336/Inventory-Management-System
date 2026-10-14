@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% from 'partials/_macros.html' import field, textarea, checkbox %}
+
+{% block content %}
+<form method="post" class="card" style="max-width:640px">
+  <div class="card__head"><h2>{{ _('Edit category') if category else _('New category') }}</h2></div>
+  <div class="card__body stack">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {{ field('name', _('Name'), request.form.get('name', category.name if category else ''),
+             'text', 'Electronics', required=True) }}
+    {{ textarea('description', _('Description'),
+                request.form.get('description', category.description if category else '')) }}
+    {{ checkbox('is_active', _('Active'), category.is_active if category else true) }}
+    <div class="form-actions">
+      <button class="btn" type="submit">{{ _('Save') }}</button>
+      <a class="btn btn--ghost" href="{{ url_for('catalog.categories') }}">{{ _('Cancel') }}</a>
+    </div>
+  </div>
+</form>
+{% endblock %}

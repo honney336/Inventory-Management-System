@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+
+{% block topbar_actions %}
+<a class="btn btn--ghost btn--sm" href="{{ url_for('reports.export', report_key=report_key) }}">{{ _('Export CSV') }}</a>
+{% endblock %}
+
+{% block content %}
+{% set total = rows|map(attribute=2)|sum %}
+
+<div class="card">
+  <div class="card__head"><h2>{{ reports[report_key].title }}</h2></div>
+  <div class="card__body card__body--flush">
+    <div class="table-wrap">
+      <table class="data">
+        <thead>
+          <tr>
+            <th>{{ _('Supplier') }}</th><th class="num">{{ _('Orders') }}</th>
+            <th class="num">{{ _('Spend') }}</th><th>{{ _('Share') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for name, orders, spend in rows %}
+          <tr>
+            <td><strong>{{ name }}</strong></td>
+            <td class="num">{{ orders|qty }}</td>
+            <td class="num">{{ spend|money }}</td>
+            <td>
+              <span class="bar-item__track" style="display:block">
+                <span class="bar-item__fill" style="width: {{ (spend / total * 100)|round|int if total else 0 }}%"></span>
+              </span>
+              <small class="muted">{{ (spend / total * 100)|round(1) if total else 0 }}%</small>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4" class="muted">{{ _('No purchase orders recorded yet.') }}</td></tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td><strong>{{ _('Total') }}</strong></td>
+            <td class="num"><strong>{{ rows|map(attribute=1)|sum|qty }}</strong></td>
+            <td class="num"><strong>{{ total|money }}</strong></td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

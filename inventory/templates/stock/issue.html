@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% from 'partials/_macros.html' import field, textarea, select %}
+
+{% block content %}
+<div class="card" style="max-width:640px">
+  <div class="card__head"><h2>{{ _('Issue stock') }}</h2></div>
+  <div class="card__body">
+    <p class="help">
+      {{ _('Stock cannot go negative here. Raise a sales order instead if the deduction should count towards revenue.') }}
+    </p>
+    <form method="post" class="stack">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {{ select('product_id', _('Product'), products, required=True, blank=_('Choose a product…')) }}
+      {{ select('warehouse_id', _('Warehouse'), warehouses, required=True, blank=_('Choose a warehouse…')) }}
+      {{ field('quantity', _('Quantity issued'), 1, 'number', min='1', required=True) }}
+      {{ field('reference', _('Reference'), '', 'text', 'Internal requisition 55') }}
+      {{ textarea('note', _('Note'), '', 3) }}
+      <div class="form-actions">
+        <button class="btn btn--danger" type="submit">{{ _('Post issue') }}</button>
+        <a class="btn btn--ghost" href="{{ url_for('sales.create') }}">{{ _('Raise a sales order instead') }}</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

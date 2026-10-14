@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% from 'partials/_macros.html' import field, textarea, checkbox %}
+
+{% block content %}
+<form method="post" class="card" style="max-width:700px">
+  <div class="card__head"><h2>{{ _('Edit supplier') if supplier else _('New supplier') }}</h2></div>
+  <div class="card__body stack">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {{ field('name', _('Company name'),
+             request.form.get('name', supplier.name if supplier else ''),
+             'text', 'Northwind Components', required=True) }}
+    <div class="form-grid">
+      {{ field('contact_name', _('Contact person'),
+               request.form.get('contact_name', supplier.contact_name if supplier else '')) }}
+      {{ field('email', _('Email'),
+               request.form.get('email', supplier.email if supplier else ''), 'email') }}
+      {{ field('phone', _('Phone'),
+               request.form.get('phone', supplier.phone if supplier else '')) }}
+      {{ field('lead_time_days', _('Lead time (days)'),
+               request.form.get('lead_time_days', supplier.lead_time_days if supplier else 7),
+               'number', step='1', min='0') }}
+    </div>
+    {{ textarea('address', _('Address'),
+                request.form.get('address', supplier.address if supplier else '')) }}
+    {{ checkbox('is_active', _('Active'), supplier.is_active if supplier else true) }}
+    <div class="form-actions">
+      <button class="btn" type="submit">{{ _('Save') }}</button>
+      <a class="btn btn--ghost" href="{{ url_for('catalog.suppliers') }}">{{ _('Cancel') }}</a>
+    </div>
+  </div>
+</form>
+{% endblock %}

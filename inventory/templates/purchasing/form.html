@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+{% from 'partials/_macros.html' import field, textarea, select %}
+
+{% block content %}
+<form method="post" class="card" data-lines>
+  <div class="card__head">
+    <h2>{{ _('New purchase order') }}</h2>
+    <span class="muted" style="font-size:.8rem">
+      {{ _('Saved as a draft. Nothing reaches stock until you receive it.') }}
+    </span>
+  </div>
+  <div class="card__body stack">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-grid">
+      {{ select('supplier_id', _('Supplier'), suppliers, required=True, blank=_('Choose a supplier…')) }}
+      {{ select('warehouse_id', _('Deliver into'), warehouses, required=True, blank=_('Choose a warehouse…')) }}
+      {{ field('expected_date', _('Expected delivery'), '', 'date') }}
+      {{ field('reference', _('Supplier reference'), '', 'text', 'Quote Q-4471') }}
+    </div>
+    {{ textarea('note', _('Note'), '', 2) }}
+  </div>
+
+  <div class="card__head"><h3>{{ _('Lines') }}</h3></div>
+  <div class="card__body card__body--flush">
+    <div class="table-wrap">
+      <table class="line-items">
+        <thead>
+          <tr>
+            <th style="width:45%">{{ _('Product') }}</th>
+            <th style="width:14%">{{ _('Quantity') }}</th>
+            <th style="width:18%">{{ _('Unit cost') }}</th>
+            <th class="num" style="width:14%">{{ _('Line total') }}</th>
+            <th style="width:5%"></th>
+          </tr>
+        </thead>
+        <tbody id="lines"></tbody>
+        <tfoot>
+          <tr>
+            <td colspan="3" class="num"><strong>{{ _('Order total') }}</strong></td>
+            <td class="num"><strong data-grand-total>0.00</strong></td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+  <div class="card__foot">
+    <div class="btn-row">
+      <button class="btn btn--sm" type="button" id="addLine">{{ _('Add line') }}</button>
+      <span class="muted" style="font-size:.8rem">{{ _('Unit costs default to the current product cost.') }}</span>
+    </div>
+  </div>
+
+  <div class="card__foot">
+    <div class="form-actions">
+      <button class="btn" type="submit">{{ _('Create draft order') }}</button>
+      <a class="btn btn--ghost" href="{{ url_for('purchasing.index') }}">{{ _('Cancel') }}</a>
+    </div>
+  </div>
+</form>
+
+<template id="lineTemplate">
+  <tr data-line-row>
+    <td>
+      <select name="product_id" data-product-select required>
+        <option value="">{{ _('Choose a product…') }}</option>
+        {% for p in products %}
+        <option value="{{ p.id }}" data-cost="{{ p.cost|float }}" data-price="{{ p.price|float }}"
+                data-stock="{{ p.quantity }}"
+                data-batch="{{ 1 if p.track_batches else 0 }}">{{ p.name }} — {{ p.sku }}</option>
+        {% endfor %}
+      </select>
+      <small class="muted" data-stock-note></small>
+    </td>
+    <td><input type="number" name="quantity" value="1" min="1" required></td>
+    <td><input type="number" name="unit_cost" data-cost-input step="0.01" min="0" value="0.00"></td>
+    <td class="num" data-line-total>0.00</td>
+    <td><button class="btn btn--ghost btn--sm" type="button" data-remove-row>&times;</button></td>
+  </tr>
+</template>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var body = document.getElementById('lines');
+  var template = document.getElementById('lineTemplate');
+  if (!body || !template) return;
+
+  function addRow() { body.appendChild(template.content.cloneNode(true)); }
+
+  document.getElementById('addLine').addEventListener('click', addRow);
+  body.addEventListener('click', function (event) {
+    var button = event.target.closest('[data-remove-row]');
+    if (button) button.closest('tr').remove();
+  });
+
+  addRow();
+  addRow();
+});
+</script>
+{% endblock %}

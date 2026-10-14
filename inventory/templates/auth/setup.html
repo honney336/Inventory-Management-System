@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% from 'partials/_macros.html' import field %}
+
+{% block content %}
+<div class="auth-card auth-card--wide">
+  <h1>{{ _('First run setup') }}</h1>
+  <p class="auth-card__sub">
+    {{ _('No accounts exist yet. Create the administrator, then this page closes itself.') }}
+  </p>
+
+  <form method="post" class="stack">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {{ field('full_name', _('Your name'), '', 'text', 'Alex Morgan') }}
+    {{ field('username', _('Username'), '', 'text', 'admin', required=True) }}
+    {{ field('email', _('Email address'), '', 'email', 'admin@example.com', required=True) }}
+    {{ field('password', _('Password'), '', 'password',
+             hint=_('At least 8 characters, mixing letters with numbers or symbols.'), required=True) }}
+    {{ field('confirm_password', _('Confirm password'), '', 'password', required=True) }}
+    <button class="btn btn--block" type="submit">{{ _('Create administrator') }}</button>
+  </form>
+
+  <div class="lang-row">
+    {% for code, label in locales.items() %}
+    <a class="lang-link {{ 'active' if code == active_locale }}"
+       href="{{ url_for('i18n.switch', code=code, next=request.full_path) }}">{{ label }}</a>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

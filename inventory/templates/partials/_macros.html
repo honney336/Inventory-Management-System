@@ -1,0 +1,104 @@
+{% macro csrf() %}
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+{% endmacro %}
+
+{% macro field(name, label, value='', type='text', placeholder='', required=False, hint='', step='', min='') %}
+<label class="field">
+  <span class="field__label">{{ label }}{% if required %} <em>*</em>{% endif %}</span>
+  <input class="field__input" type="{{ type }}" name="{{ name }}" id="f-{{ name }}"
+         value="{{ value if value is not none else '' }}"
+         {% if placeholder %}placeholder="{{ placeholder }}"{% endif %}
+         {% if required %}required{% endif %}
+         {% if step %}step="{{ step }}"{% endif %}
+         {% if min != '' %}min="{{ min }}"{% endif %}>
+  {% if hint %}<span class="field__hint">{{ hint }}</span>{% endif %}
+</label>
+{% endmacro %}
+
+{% macro number(name, label, value='', hint='', step='1', min='0') %}
+  {{ field(name, label, value, 'number', hint=hint, step=step, min=min) }}
+{% endmacro %}
+
+{% macro textarea(name, label, value='', rows=4, hint='') %}
+<label class="field">
+  <span class="field__label">{{ label }}</span>
+  <textarea class="field__input" name="{{ name }}" id="f-{{ name }}" rows="{{ rows }}">{{ value if value is not none else '' }}</textarea>
+  {% if hint %}<span class="field__hint">{{ hint }}</span>{% endif %}
+</label>
+{% endmacro %}
+
+{% macro select(name, label, options, selected=None, hint='', blank=None, required=False) %}
+<label class="field">
+  <span class="field__label">{{ label }}{% if required %} <em>*</em>{% endif %}</span>
+  <select class="field__input" name="{{ name }}" id="f-{{ name }}" {% if required %}required{% endif %}>
+    {% if blank %}<option value="">{{ blank }}</option>{% endif %}
+    {% for option in options %}
+      {% set value = option.id if option.id is defined else option[0] %}
+      {% set text = option.name if option.name is defined else option[1] %}
+      <option value="{{ value }}" {{ 'selected' if selected is not none and selected|string == value|string }}>{{ text }}</option>
+    {% endfor %}
+  </select>
+  {% if hint %}<span class="field__hint">{{ hint }}</span>{% endif %}
+</label>
+{% endmacro %}
+
+{% macro checkbox(name, label, checked=True) %}
+<label class="check">
+  <input type="checkbox" name="{{ name }}" value="1" {{ 'checked' if checked }}>
+  <span>{{ label }}</span>
+</label>
+{% endmacro %}
+
+{% macro status_badge(status) %}
+  {% set labels = {
+    'ok': _('In stock'), 'low': _('Low'), 'out': _('Out of stock'),
+    'draft': _('Draft'), 'partial': _('Partial'), 'complete': _('Complete'),
+    'cancelled': _('Cancelled'),
+    'expired': _('Expired'), 'critical': _('Expires soon'), 'soon': _('Watch date'),
+    'none': _('No expiry'), 'active': _('Active'), 'inactive': _('Inactive'),
+    'admin': _('Administrator'), 'manager': _('Manager'), 'staff': _('Staff')
+  } %}
+  <span class="badge badge--{{ status }}">{{ labels.get(status, status) }}</span>
+{% endmacro %}
+
+{% macro sort_header(label, key, current, direction) %}
+  {% set next_dir = 'desc' if (current == key and direction == 'asc') else 'asc' %}
+  {% set args = dict(request.args.to_dict(), sort=key, dir=next_dir, page=1) %}
+  <th class="sortable {{ 'sorted' if current == key }}">
+    <a href="{{ url_for(request.endpoint, **args) }}">
+      {{ label }}
+      {% if current == key %}<span class="caret">{{ '▾' if direction == 'desc' else '▴' }}</span>{% endif %}
+    </a>
+  </th>
+{% endmacro %}
+
+{% macro empty_state(message, hint='') %}
+<div class="empty">
+  <p class="empty__title">{{ message }}</p>
+  {% if hint %}<p class="empty__hint">{{ hint }}</p>{% endif %}
+</div>
+{% endmacro %}
+
+{% macro confirm_form(action, label, message, class_name='btn--danger btn--sm') %}
+<form method="post" action="{{ action }}" class="inline-form" data-confirm="{{ message }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <button class="btn {{ class_name }}" type="submit">{{ label }}</button>
+</form>
+{% endmacro %}
+
+{% macro expiry_badge(batch) %}
+  {% set labels = {
+    'expired': _('Expired'),
+    'critical': _('Under 30 days'),
+    'soon': _('Under 90 days'),
+    'ok': _('Date fine'),
+    'none': _('No expiry date')
+  } %}
+  <span class="badge badge--{{ batch.expiry_state }}">{{ labels.get(batch.expiry_state, '') }}</span>
+{% endmacro %}
+
+{% macro days_left(batch) %}
+  {% if batch.days_to_expiry is none %}&mdash;
+  {% elif batch.days_to_expiry < 0 %}{{ _('expired {days} days ago').format(days=(-batch.days_to_expiry)|int) }}
+  {% else %}{{ _('{days} days').format(days=batch.days_to_expiry) }}{% endif %}
+{% endmacro %}

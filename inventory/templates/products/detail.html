@@ -1,0 +1,269 @@
+{% extends 'base.html' %}
+{% from 'partials/_macros.html' import status_badge, expiry_badge, days_left %}
+
+{% block topbar_actions %}
+<a class="btn btn--ghost btn--sm" href="{{ url_for('products.index') }}">{{ _('Back to list') }}</a>
+{% if can_manage %}
+<a class="btn btn--ghost btn--sm" href="{{ url_for('products.edit', product_id=product.id) }}">{{ _('Edit') }}</a>
+{% endif %}
+<a class="btn btn--sm" href="{{ url_for('stock.receive') }}">{{ _('Receive stock') }}</a>
+{% endblock %}
+
+{% block content %}
+<div class="stats">
+  <div class="stat {{ 'stat--danger' if product.stock_status == 'out' else ('stat--warn' if product.stock_status == 'low' else 'stat--good') }}">
+    <div class="stat__label">{{ _('On hand') }}</div>
+    <div class="stat__value">{{ product.quantity|qty }}</div>
+    <div class="stat__meta">{{ product.unit }} · {{ _('reorder at {count}').format(count=product.reorder_point|qty) }}</div>
+  </div>
+  <div class="stat">
+    <div class="stat__label">{{ _('Value at cost') }}</div>
+    <div class="stat__value">{{ product.stock_value|money }}</div>
+    <div class="stat__meta">{{ _('Retail {amount}').format(amount=product.retail_value|money) }}</div>
+  </div>
+  <div class="stat">
+    <div class="stat__label">{{ _('Unit margin') }}</div>
+    <div class="stat__value">{{ product.margin_percent }}%</div>
+    <div class="stat__meta">{{ product.cost|float|money }} → {{ product.price|float|money }}</div>
+  </div>
+  <div class="stat">
+    <div class="stat__label">{{ _('Net movement') }}</div>
+    <div class="stat__value">{{ (inbound - outbound)|qty }}</div>
+    <div class="stat__meta">{{ _('{count} in · {out} out').format(count=inbound|qty, out=outbound|qty) }}</div>
+  </div>
+</div>
+
+<div class="grid grid--2">
+  <section class="card">
+    <div class="card__head"><h2>{{ _('Details') }}</h2></div>
+    <div class="card__body">
+      <dl class="kv">
+        <dt>{{ _('SKU') }}</dt><dd class="mono">{{ product.sku }}</dd>
+        <dt>{{ _('Barcode') }}</dt><dd class="mono">{{ product.barcode or '—' }}</dd>
+        <dt>{{ _('Category') }}</dt><dd>{{ product.category.name if product.category else '—' }}</dd>
+        <dt>{{ _('Supplier') }}</dt>
+        <dd>
+          {% if product.supplier %}
+            {{ product.supplier.name }}
+            {% if product.supplier.lead_time_days %}
+              <span class="muted">· {{ _('{days} day lead time').format(days=product.supplier.lead_time_days) }}</span>
+            {% endif %}
+          {% else %}—{% endif %}
+        </dd>
+        <dt>{{ _('Bin') }}</dt><dd>{{ product.location_bin or '—' }}</dd>
+        <dt>{{ _('Unit') }}</dt><dd>{{ product.unit }}</dd>
+        <dt>{{ _('Tax rate') }}</dt><dd>{{ product.tax_rate|float }}%</dd>
+        <dt>{{ _('Batch tracking') }}</dt>
+        <dd>
+          {% if product.track_batches %}
+            {{ _('On') }}
+            {% if product.shelf_life_days %} · {{ _('shelf life {days} days').format(days=product.shelf_life_days) }}{% endif %}
+          {% else %}{{ _('Off') }}{% endif %}
+        </dd>
+        <dt>{{ _('State') }}</dt>
+        <dd>
+          {{ status_badge(product.stock_status) }}
+          {% if not product.is_active %}<span class="badge">{{ _('archived') }}</span>{% endif %}
+        </dd>
+        <dt>{{ _('Updated') }}</dt><dd>{{ product.updated_at|dt }}</dd>
+      </dl>
+      {% if product.description %}
+      <hr class="divider">
+      <p class="muted">{{ product.description }}</p>
+      {% endif %}
+      <div class="btn-row" style="margin-top:12px">
+        <a class="btn btn--ghost btn--sm" href="{{ url_for('products.barcode', product_id=product.id) }}">{{ _('Barcode label') }}</a>
+        <a class="btn btn--ghost btn--sm" href="{{ url_for('products.labels', ids=[product.id]) }}">{{ _('Shelf label') }}</a>
+        <a class="btn btn--ghost btn--sm" href="{{ url_for('stock.movements', product=product.id) }}">{{ _('Movement history') }}</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h2>{{ _('Stock by warehouse') }}</h2></div>
+    <div class="card__body card__body--flush">
+      <div class="table-wrap">
+        <table class="data">
+          <thead><tr><th>{{ _('Warehouse') }}</th><th class="num">{{ _('Quantity') }}</th><th class="num">{{ _('Value') }}</th></tr></thead>
+          <tbody>
+            {% for warehouse, quantity, value in per_warehouse %}
+            <tr>
+              <td>{{ warehouse.name }} <span class="muted mono">{{ warehouse.code }}</span></td>
+              <td class="num">{{ quantity|qty }}</td>
+              <td class="num">{{ value|money }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="3" class="muted">{{ _('No stock on hand in any warehouse.') }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    {% if can_manage %}
+    <div class="card__foot">
+      <form method="post" action="{{ url_for('products.adjust', product_id=product.id) }}"
+            class="filters" data-confirm="{{ _('Apply this counted quantity and log an adjustment?') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label class="field">
+          <span class="field__label">{{ _('Warehouse') }}</span>
+          <select class="field__input" name="warehouse_id" required>
+            {% for w in warehouses %}<option value="{{ w.id }}">{{ w.code }}</option>{% endfor %}
+          </select>
+        </label>
+        {% if product.track_batches %}
+        <label class="field">
+          <span class="field__label">{{ _('Batch') }}</span>
+          <select class="field__input" name="batch_id">
+            <option value="">{{ _('FEFO: earliest expiry') }}</option>
+            {% for batch in batches %}
+            <option value="{{ batch.id }}">{{ batch.batch_no }} ({{ batch.quantity|qty }})</option>
+            {% endfor %}
+          </select>
+        </label>
+        {% endif %}
+        <label class="field">
+          <span class="field__label">{{ _('Counted quantity') }}</span>
+          <input class="field__input" type="number" name="counted_quantity" min="0" required>
+        </label>
+        <label class="field field--grow">
+          <span class="field__label">{{ _('Note') }}</span>
+          <input class="field__input" type="text" name="note" placeholder="{{ _('Cycle count') }}">
+        </label>
+        <div class="filters__actions">
+          <button class="btn btn--sm" type="submit">{{ _('Post adjustment') }}</button>
+        </div>
+      </form>
+    </div>
+    {% endif %}
+  </section>
+</div>
+
+{% if product.track_batches %}
+<section class="card">
+  <div class="card__head">
+    <h2>{{ _('Batches') }}</h2>
+    <span class="muted" style="font-size:.8rem">
+      {{ _('Batches expiring within {days} days: {count}').format(days=warning_days, count=batches|selectattr('days_to_expiry', 'le', warning_days)|list|length) }}
+    </span>
+  </div>
+  <div class="card__body card__body--flush">
+    <div class="table-wrap">
+      <table class="data">
+        <thead>
+          <tr>
+            <th>{{ _('Batch number') }}</th><th>{{ _('Warehouse') }}</th>
+            <th class="num">{{ _('Quantity') }}</th><th class="num">{{ _('Unit cost') }}</th>
+            <th class="num">{{ _('Value') }}</th><th>{{ _('Expiry date') }}</th>
+            <th>{{ _('State') }}</th><th>{{ _('Received') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for batch in batches %}
+          <tr>
+            <td class="mono">{{ batch.batch_no }}</td>
+            <td class="muted">{{ batch.warehouse.code if batch.warehouse else '—' }}</td>
+            <td class="num">{{ batch.quantity|qty }}</td>
+            <td class="num">{{ batch.unit_cost|float|money }}</td>
+            <td class="num">{{ batch.value|money }}</td>
+            <td class="nowrap">{{ batch.expiry_date|datestr }}</td>
+            <td>{{ expiry_badge(batch) }} <small class="muted">{{ days_left(batch) }}</small></td>
+            <td class="muted nowrap">{{ batch.received_on|datestr }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="8" class="muted">{{ _('No batches on hand. Receive stock with a batch number to create one.') }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+{% if recommendation %}
+<section class="card">
+  <div class="card__head">
+    <h2>{{ _('Reorder suggestion') }}</h2>
+    <span class="muted" style="font-size:.8rem">{{ _('based on the last 90 days of issues') }}</span>
+  </div>
+  <div class="card__body">
+    <div class="stats" style="margin:0">
+      <div class="stat">
+        <div class="stat__label">{{ _('Average daily use') }}</div>
+        <div class="stat__value">{{ recommendation.avg_daily|num }}</div>
+        <div class="stat__meta">{{ _('std dev {value}').format(value=recommendation.stddev|num) }}</div>
+      </div>
+      <div class="stat">
+        <div class="stat__label">{{ _('Lead time cover') }}</div>
+        <div class="stat__value">{{ recommendation.lead_time }} {{ _('days') }}</div>
+        <div class="stat__meta">{{ _('at {level}% service level').format(level=recommendation.service_level) }}</div>
+      </div>
+      <div class="stat">
+        <div class="stat__label">{{ _('Safety stock') }}</div>
+        <div class="stat__value">{{ recommendation.safety_stock|qty }}</div>
+        <div class="stat__meta">{{ _('covers usage variation') }}</div>
+      </div>
+      <div class="stat {{ 'stat--warn' }}">
+        <div class="stat__label">{{ _('Suggested reorder point') }}</div>
+        <div class="stat__value">{{ recommendation.reorder_point|qty }}</div>
+        <div class="stat__meta">
+          {{ _('current setting {count}').format(count=product.reorder_point|qty) }}
+        </div>
+      </div>
+      <div class="stat">
+        <div class="stat__label">{{ _('Suggested order quantity') }}</div>
+        <div class="stat__value">{{ recommendation.reorder_quantity|qty }}</div>
+        <div class="stat__meta">
+          {% if recommendation.days_cover %}{{ _('{days} days of cover on hand').format(days=recommendation.days_cover) }}{% endif %}
+        </div>
+      </div>
+    </div>
+    {% if can_manage and recommendation.reorder_point != product.reorder_point %}
+    <form method="post" action="{{ url_for('products.apply_recommendation', product_id=product.id) }}"
+          class="form-actions" style="margin-top:14px">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn btn--sm" type="submit">
+        {{ _('Apply suggestion ({point} / {quantity})').format(point=recommendation.reorder_point, quantity=recommendation.reorder_quantity) }}
+      </button>
+    </form>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+
+<section class="card">
+  <div class="card__head">
+    <h2>{{ _('Movement history') }}</h2>
+    <span class="muted" style="font-size:.8rem">{{ _('Latest {count} entries').format(count=movements|length) }}</span>
+  </div>
+  <div class="card__body card__body--flush">
+    <div class="table-wrap">
+      <table class="data">
+        <thead>
+          <tr>
+            <th>{{ _('When') }}</th><th>{{ _('Type') }}</th><th>{{ _('Batch') }}</th>
+            <th class="num">{{ _('Change') }}</th><th class="num">{{ _('Balance') }}</th>
+            <th>{{ _('Reference') }}</th><th>{{ _('Note') }}</th><th>{{ _('User') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in movements %}
+          <tr>
+            <td class="nowrap muted">{{ m.created_at|dt }}</td>
+            <td><span class="badge">{{ m.move_type|replace('_', ' ') }}</span></td>
+            <td class="mono muted">{{ m.batch.batch_no if m.batch else '—' }}</td>
+            <td class="num {{ 'pos' if m.quantity > 0 else 'neg' }}">{{ '%+d'|format(m.quantity) }}</td>
+            <td class="num">{{ m.balance_after|qty }}</td>
+            <td class="mono muted">{{ m.reference or '—' }}</td>
+            <td class="muted">{{ m.note or '—' }}</td>
+            <td class="muted">{{ m.user.username if m.user else 'system' }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="8" class="muted">{{ _('No movements recorded for this product.') }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{% endblock %}

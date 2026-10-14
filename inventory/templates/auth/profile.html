@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+{% from 'partials/_macros.html' import field, select %}
+
+{% block content %}
+<div class="grid grid--2">
+  <section class="card">
+    <div class="card__head"><h2>{{ _('Profile') }}</h2></div>
+    <div class="card__body">
+      <form method="post" class="stack">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label class="field">
+          <span class="field__label">{{ _('Username') }}</span>
+          <input class="field__input" value="{{ user.username }}" disabled>
+          <span class="field__hint">{{ _('Usernames cannot be changed.') }}</span>
+        </label>
+        {{ field('full_name', _('Full name'), user.full_name or '') }}
+        {{ field('email', _('Email address'), user.email or '', 'email', required=True) }}
+        {{ select('locale', _('Language'), locales.items() | list,
+                  selected=user.locale or active_locale) }}
+        <div class="form-actions">
+          <button class="btn" type="submit">{{ _('Save changes') }}</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h2>{{ _('Change password') }}</h2></div>
+    <div class="card__body">
+      <form method="post" action="{{ url_for('auth.change_password') }}" class="stack">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        {{ field('current_password', _('Current password'), '', 'password', required=True) }}
+        {{ field('new_password', _('New password'), '', 'password', required=True) }}
+        {{ field('confirm_password', _('Confirm new password'), '', 'password', required=True) }}
+        <div class="form-actions">
+          <button class="btn" type="submit">{{ _('Update password') }}</button>
+        </div>
+      </form>
+    </div>
+  </section>
+</div>
+
+<section class="card">
+  <div class="card__head">
+    <h2>{{ _('My recent activity') }}</h2>
+    <span class="badge">{{ user.role }}</span>
+  </div>
+  <div class="card__body card__body--flush">
+    <div class="table-wrap">
+      <table class="data">
+        <thead>
+          <tr><th>{{ _('When') }}</th><th>{{ _('Action') }}</th><th>{{ _('Entity') }}</th><th>{{ _('Details') }}</th></tr>
+        </thead>
+        <tbody>
+          {% for entry in recent %}
+          <tr>
+            <td class="nowrap">{{ entry.created_at|dt }}</td>
+            <td class="mono">{{ entry.action }}</td>
+            <td>{{ entry.entity or '—' }}{% if entry.entity_id %} #{{ entry.entity_id }}{% endif %}</td>
+            <td class="muted">{{ entry.details or '—' }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4" class="muted">{{ _('Nothing logged yet.') }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{% endblock %}

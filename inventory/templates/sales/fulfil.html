@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+{% from 'partials/_macros.html' import textarea, expiry_badge %}
+
+{% block topbar_actions %}
+<a class="btn btn--ghost btn--sm" href="{{ url_for('sales.detail', order_id=order.id) }}">{{ _('Back to order') }}</a>
+{% endblock %}
+
+{% block content %}
+<form method="post" class="card">
+  <div class="card__head">
+    <h2>{{ _('Fulfil') }} {{ order.number }}</h2>
+    <span class="muted" style="font-size:.8rem">{{ _('From {warehouse}').format(warehouse=order.warehouse.name) }}</span>
+  </div>
+
+  <div class="card__body card__body--flush">
+    <div class="table-wrap">
+      <table class="line-items">
+        <thead>
+          <tr>
+            <th>{{ _('Product') }}</th>
+            <th class="num">{{ _('Ordered') }}</th>
+            <th class="num">{{ _('Outstanding') }}</th>
+            <th class="num">{{ _('Ship now') }}</th>
+            <th class="num">{{ _('Available') }}</th>
+            <th>{{ _('Batches used (earliest expiry first)') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for line in order.lines %}
+          {% set available = line.product.stock_at(order.warehouse_id) %}
+          <tr data-line-row>
+            <td>
+              <strong>{{ line.product.name }}</strong>
+              <div class="link-muted mono">{{ line.product.sku }}</div>
+              {% if available < line.outstanding %}
+                <small class="muted neg">
+                  {{ _('Only {count} on hand in this warehouse').format(count=available|qty) }}
+                </small>
+              {% endif %}
+            </td>
+            <td class="num">{{ line.quantity|qty }}</td>
+            <td class="num">{{ line.outstanding|qty }}</td>
+            <td class="num">
+              <input type="number" name="qty_{{ line.id }}" min="0" max="{{ line.outstanding }}"
+                     value="{{ line.outstanding if available >= line.outstanding else [0, available]|max }}"
+                     style="text-align:right" {{ 'disabled' if line.outstanding <= 0 }}>
+            </td>
+            <td class="num">{{ available|qty }}</td>
+            <td>
+              {% set plan = allocation.get(line.id) %}
+              {% if plan %}
+                {% for pick in plan.picks %}
+                <div class="muted mono">
+                  {{ pick.batch_no }} × {{ pick.quantity|qty }}
+                  {% if pick.expiry_date %}· {{ pick.expiry_date|datestr }}{% endif %}
+                </div>
+                {% endfor %}
+                {% if plan.short %}
+                  <small class="neg">{{ _('short by {count}').format(count=plan.short|qty) }}</small>
+                {% endif %}
+              {% else %}
+                <span class="muted">{{ _('Not batch tracked') }}</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card__body">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <p class="help">
+      {{ _('Fulfil as much as the warehouse holds. Short quantities are fine, the order stays open until every line is shipped. Batch tracked products are drawn first-expiry-first-out automatically.') }}
+    </p>
+    {{ textarea('note', _('Note'), '', 2, hint=_('Carrier, tracking number, packing slip…')) }}
+    <div class="form-actions">
+      <button class="btn btn--success" type="submit">{{ _('Post fulfilment') }}</button>
+      <a class="btn btn--ghost" href="{{ url_for('sales.detail', order_id=order.id) }}">{{ _('Cancel') }}</a>
+    </div>
+  </div>
+</form>
+{% endblock %}

@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% block head %}<style>
+  .barcode-sheet { text-align: center; padding: 28px; }
+  .barcode-sheet__name { font-size: 1.1rem; font-weight: 650; margin-bottom: 4px; }
+  .barcode-sheet__meta { color: var(--muted); font-size: .82rem; margin-top: 6px; }
+</style>{% endblock %}
+
+{% block content %}
+<div class="card barcode-sheet">
+  <div class="card__body">
+    <div class="barcode-sheet__name">{{ product.name }}</div>
+    <div class="mono muted">{{ product.sku }}</div>
+    <div style="margin:18px 0" id="barcode-wrap">
+      <canvas id="barcode" aria-label="{{ _('Barcode for {value}').format(value=value) }}"></canvas>
+      <p class="muted" id="barcode-fallback" hidden>
+        {{ _('The barcode could not be drawn. The code is {value}.').format(value=value) }}
+      </p>
+    </div>
+    <div class="barcode-sheet__meta">
+      {{ product.price|float|money }} {{ _('per') }} {{ product.unit }}
+      {% if product.location_bin %} · {{ _('bin') }} {{ product.location_bin }}{% endif %}
+    </div>
+    <div class="btn-row" style="justify-content:center;margin-top:18px">
+      <button class="btn btn--sm" type="button" onclick="window.print()">{{ _('Print label') }}</button>
+      <a class="btn btn--ghost btn--sm" href="{{ url_for('products.detail', product_id=product.id) }}">{{ _('Back to product') }}</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/barcode.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var canvas = document.getElementById('barcode');
+  if (!canvas || !window.InventoryBarcode) return;
+
+  var built = window.InventoryBarcode.renderToCanvas(canvas, {{ value|tojson }}, {
+    widthMm: 80, moduleHeightMm: 22, fontSizePt: 11
+  });
+
+  if (!built) {
+    document.getElementById('barcode-fallback').hidden = false;
+    canvas.hidden = true;
+    return;
+  }
+  canvas.setAttribute('data-format', built.format);
+  canvas.setAttribute('data-modules', built.modules.length);
+  canvas.setAttribute('data-module-mm', built.moduleMm);
+});
+</script>
+{% endblock %}

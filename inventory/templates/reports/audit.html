@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+
+{% block topbar_actions %}
+<a class="btn btn--ghost btn--sm" href="{{ url_for('reports.export', report_key=report_key) }}">{{ _('Export CSV') }}</a>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card__head">
+    <h2>{{ _('Movement ledger') }}</h2>
+    <span class="muted" style="font-size:.8rem">{{ _('Newest {count} entries').format(count=rows|length) }}</span>
+  </div>
+  <div class="card__body card__body--flush">
+    <div class="table-wrap">
+      <table class="data">
+        <thead>
+          <tr>
+            <th>{{ _('When') }}</th><th>{{ _('SKU') }}</th><th>{{ _('Type') }}</th>
+            <th>{{ _('Warehouse') }}</th><th>{{ _('Batch') }}</th>
+            <th class="num">{{ _('Change') }}</th><th class="num">{{ _('Balance') }}</th>
+            <th>{{ _('Reference') }}</th><th>{{ _('User') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in rows %}
+          <tr>
+            <td class="nowrap muted">{{ m.created_at|dt }}</td>
+            <td class="mono">{{ m.product.sku if m.product else '—' }}</td>
+            <td><span class="badge">{{ m.move_type|replace('_', ' ') }}</span></td>
+            <td class="muted">{{ m.warehouse.code if m.warehouse else '—' }}</td>
+            <td class="mono muted">{{ m.batch.batch_no if m.batch else '—' }}</td>
+            <td class="num {{ 'pos' if m.quantity > 0 else 'neg' }}">{{ '%+d'|format(m.quantity) }}</td>
+            <td class="num">{{ m.balance_after|qty }}</td>
+            <td class="mono muted">{{ m.reference or '—' }}</td>
+            <td class="muted">{{ m.user.username if m.user else 'system' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card__head">
+    <h2>{{ _('Adjustments') }}</h2>
+    <span class="muted" style="font-size:.8rem">{{ _('Count corrections worth reviewing') }}</span>
+  </div>
+  <div class="card__body card__body--flush">
+    <div class="table-wrap">
+      <table class="data">
+        <thead>
+          <tr>
+            <th>{{ _('When') }}</th><th>{{ _('SKU') }}</th><th>{{ _('Warehouse') }}</th>
+            <th class="num">{{ _('Change') }}</th><th class="num">{{ _('Balance') }}</th>
+            <th>{{ _('Reason') }}</th><th>{{ _('User') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in adjustments %}
+          <tr>
+            <td class="nowrap muted">{{ m.created_at|dt }}</td>
+            <td class="mono">{{ m.product.sku if m.product else '—' }}</td>
+            <td class="muted">{{ m.warehouse.code if m.warehouse else '—' }}</td>
+            <td class="num {{ 'pos' if m.quantity > 0 else 'neg' }}">{{ '%+d'|format(m.quantity) }}</td>
+            <td class="num">{{ m.balance_after|qty }}</td>
+            <td class="muted">{{ m.note or '—' }}</td>
+            <td class="muted">{{ m.user.username if m.user else 'system' }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7" class="muted">{{ _('No adjustments recorded.') }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+
+{% block topbar_actions %}
+<a class="btn btn--ghost btn--sm" href="{{ url_for('reports.export', report_key=report_key) }}">{{ _('Export CSV') }}</a>
+{% if can_manage %}
+<form method="post" action="{{ url_for('purchasing.from_low_stock') }}"
+      data-confirm="{{ _('Draft purchase orders for every supplier shown here?') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="warehouse_id" value="{{ warehouse_id or '' }}">
+  <button class="btn btn--sm" type="submit">{{ _('Create purchase orders') }}</button>
+</form>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card__head">
+    <h2>{{ reports[report_key].title }}</h2>
+    <form method="get" class="filters" style="align-items:center">
+      <label class="field">
+        <span class="field__label">{{ _('Warehouse') }}</span>
+        <select class="field__input" name="warehouse" onchange="this.form.submit()">
+          <option value="">{{ _('All') }}</option>
+          {% for w in warehouses %}
+          <option value="{{ w.id }}" {{ 'selected' if warehouse_id == w.id }}>{{ w.code }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </form>
+  </div>
+
+  <div class="card__body">
+    <p class="help">
+      {{ _('Reorder point = average daily use × supplier lead time + safety stock. Safety stock covers the variation in daily usage at the service level set in settings. Products without issue history fall back to their current reorder point.') }}
+    </p>
+    <div class="stats" style="margin:0">
+      <div class="stat stat--warn"><div class="stat__label">{{ _('Products to review') }}</div>
+        <div class="stat__value">{{ rows|length }}</div></div>
+      <div class="stat"><div class="stat__label">{{ _('Budget if all reordered') }}</div>
+        <div class="stat__value">{{ total|money }}</div></div>
+    </div>
+  </div>
+
+  <div class="card__body card__body--flush">
+    <div class="table-wrap">
+      <table class="data">
+        <thead>
+          <tr>
+            <th>{{ _('SKU') }}</th><th>{{ _('Product') }}</th><th>{{ _('Supplier') }}</th>
+            <th class="num">{{ _('On hand') }}</th><th class="num">{{ _('Current par') }}</th>
+            <th class="num">{{ _('Suggested par') }}</th><th class="num">{{ _('Daily use') }}</th>
+            <th class="num">{{ _('Safety stock') }}</th><th class="num">{{ _('Order qty') }}</th>
+            <th class="num">{{ _('Line cost') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          <tr>
+            <td class="mono nowrap">{{ row.product.sku }}</td>
+            <td><a href="{{ url_for('products.detail', product_id=row.product.id) }}">{{ row.product.name }}</a></td>
+            <td class="muted">{{ row.product.supplier.name if row.product.supplier else '—' }}</td>
+            <td class="num">{{ row.on_hand|qty }}</td>
+            <td class="num muted">{{ row.product.reorder_point|qty }}</td>
+            <td class="num">
+              {% if row.recommendation %}{{ row.recommendation.reorder_point|qty }}
+              {% else %}<span class="muted">—</span>{% endif %}
+            </td>
+            <td class="num">
+              {% if row.recommendation %}{{ row.recommendation.avg_daily|num }}
+              {% else %}<span class="muted">—</span>{% endif %}
+            </td>
+            <td class="num">
+              {% if row.recommendation %}{{ row.recommendation.safety_stock|qty }}
+              {% else %}<span class="muted">—</span>{% endif %}
+            </td>
+            <td class="num">{{ row.suggested|qty }}</td>
+            <td class="num">{{ row.cost|money }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="10" class="muted">{{ _('Nothing is below its reorder point right now.') }}</td></tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="9" class="num"><strong>{{ _('Total') }}</strong></td>
+            <td class="num"><strong>{{ total|money }}</strong></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

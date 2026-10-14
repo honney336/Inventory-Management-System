@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+
+{% block topbar_actions %}
+<a class="btn btn--ghost btn--sm" href="{{ url_for('reports.export', report_key=report_key) }}">{{ _('Export CSV') }}</a>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card__head">
+    <h2>{{ reports[report_key].title }}</h2>
+    <form method="get" class="filters" style="align-items:center">
+      <label class="field">
+        <span class="field__label">{{ _('No sales for') }}</span>
+        <select class="field__input" name="days" onchange="this.form.submit()">
+          {% for value, label in [('90', _('90 days')), ('180', _('180 days')), ('365', _('12 months'))] %}
+          <option value="{{ value }}" {{ 'selected' if days == value|int }}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </form>
+  </div>
+  <div class="card__body">
+    <div class="stats" style="margin:0">
+      <div class="stat stat--warn"><div class="stat__label">{{ _('Products listed') }}</div>
+        <div class="stat__value">{{ rows|length }}</div></div>
+      <div class="stat stat--danger"><div class="stat__label">{{ _('Capital tied up') }}</div>
+        <div class="stat__value">{{ value|money }}</div></div>
+      <div class="stat"><div class="stat__label">{{ _('Units sitting still') }}</div>
+        <div class="stat__value">{{ rows|map(attribute='quantity')|sum|qty }}</div></div>
+    </div>
+  </div>
+  <div class="card__body card__body--flush">
+    <div class="table-wrap">
+      <table class="data">
+        <thead>
+          <tr>
+            <th>{{ _('SKU') }}</th><th>{{ _('Product') }}</th><th>{{ _('Category') }}</th>
+            <th class="num">{{ _('On hand') }}</th><th class="num">{{ _('Value') }}</th>
+            <th>{{ _('Last updated') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in rows %}
+          <tr>
+            <td class="mono nowrap">{{ p.sku }}</td>
+            <td><a href="{{ url_for('products.detail', product_id=p.id) }}">{{ p.name }}</a></td>
+            <td class="muted">{{ p.category.name if p.category else '—' }}</td>
+            <td class="num">{{ p.quantity|qty }}</td>
+            <td class="num">{{ p.stock_value|money }}</td>
+            <td class="muted nowrap">{{ p.updated_at|dt }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" class="muted">
+            {{ _('Nothing is sitting idle for {days} days or more.').format(days=days) }}
+          </td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+{% block head %}<style>
+  .label-sheet { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6mm; }
+  .label canvas { max-width: 100%; height: auto; display: block; }
+  .label {
+    border: 1px dashed #94a3b8; border-radius: 6px; padding: 8px 10px;
+    height: 52mm; display: flex; flex-direction: column; justify-content: space-between;
+    page-break-inside: avoid;
+  }
+  .label__name { font-weight: 700; font-size: 13px; line-height: 1.2; }
+  .label__sku { font-family: var(--mono); font-size: 11px; color: #475569; }
+  .label__meta { display: flex; justify-content: space-between; font-size: 11px; color: #475569; border-top: 1px solid #e2e8f0; padding-top: 4px; }
+  .print-head { margin-bottom: 14px; }
+  @media print { .print-head { display: none; } .label-sheet { gap: 4mm; } }
+</style>{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/barcode.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  if (!window.InventoryBarcode) return;
+  document.querySelectorAll('canvas.label__barcode').forEach(function (canvas) {
+    window.InventoryBarcode.renderToCanvas(canvas, canvas.dataset.value, {
+      widthMm: 54, moduleHeightMm: 12, displayValue: false
+    });
+  });
+});
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="card print-head">
+  <div class="card__body filters">
+    <form method="get" class="filters">
+      <label class="field">
+        <span class="field__label">{{ _('Copies each') }}</span>
+        <select class="field__input" name="copies" onchange="this.form.submit()">
+          {% for c in [1, 2, 3, 4] %}
+          <option value="{{ c }}" {{ 'selected' if c == copies }}>{{ c }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </form>
+    <div class="filters__actions">
+      <a class="btn btn--ghost btn--sm" href="{{ url_for('products.index') }}">{{ _('Back to products') }}</a>
+      <button class="btn btn--sm" type="button" onclick="window.print()">{{ _('Print') }}</button>
+    </div>
+    <span class="muted">{{ _('{count} products shown').format(count=products|length) }}</span>
+  </div>
+</div>
+
+<div class="label-sheet">
+  {% for product in products %}
+  {% for copy in range(copies) %}
+  <div class="label">
+    <div>
+      <div class="label__name">{{ product.name }}</div>
+      <div class="label__sku">{{ product.sku }}{% if product.location_bin %} · {{ product.location_bin }}{% endif %}</div>
+    </div>
+    {% if product.barcode or product.sku %}
+    <canvas class="label__barcode" data-value="{{ product.barcode or product.sku }}"
+            aria-label="{{ _('Barcode for {value}').format(value=product.barcode or product.sku) }}"></canvas>
+    {% else %}
+    <div class="mono" style="font-size:11px">{{ _('no barcode') }}</div>
+    {% endif %}
+    <div class="label__meta">
+      <span>{{ product.price|float|money }} / {{ product.unit }}</span>
+      <span>{{ product.sku }}</span>
+    </div>
+  </div>
+  {% endfor %}
+  {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+{% from 'partials/_macros.html' import status_badge %}
+
+{% block topbar_actions %}
+<a class="btn btn--ghost btn--sm" href="{{ url_for('purchasing.export_csv') }}">{{ _('Export CSV') }}</a>
+{% if can_manage %}
+<form method="post" action="{{ url_for('purchasing.from_low_stock') }}"
+      data-confirm="{{ _('Create draft purchase orders for every supplier with stock below its reorder point?') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <button class="btn btn--ghost btn--sm" type="submit">{{ _('Auto-order low stock') }}</button>
+</form>
+<a class="btn btn--sm" href="{{ url_for('purchasing.create') }}">{{ _('New purchase order') }}</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card__body">
+    <form method="get" class="filters">
+      <label class="field field--grow">
+        <span class="field__label">{{ _('Search') }}</span>
+        <input class="field__input" type="search" name="q" value="{{ term }}"
+               placeholder="{{ _('Order number or supplier') }}">
+      </label>
+      <label class="field">
+        <span class="field__label">{{ _('Status') }}</span>
+        <select class="field__input" name="status">
+          <option value="">{{ _('All') }}</option>
+          {% for value in ['draft', 'partial', 'complete', 'cancelled'] %}
+          <option value="{{ value }}" {{ 'selected' if status == value }}>{{ value|capitalize }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <div class="filters__actions">
+        <button class="btn btn--sm" type="submit">{{ _('Apply') }}</button>
+        <a class="btn btn--ghost btn--sm" href="{{ url_for('purchasing.index') }}">{{ _('Reset') }}</a>
+      </div>
+    </form>
+  </div>
+
+  <div class="card__body card__body--flush">
+    <div class="table-wrap">
+      <table class="data">
+        <thead>
+          <tr>
+            <th>{{ _('Number') }}</th><th>{{ _('Supplier') }}</th><th>{{ _('Warehouse') }}</th>
+            <th>{{ _('Expected') }}</th><th class="num">{{ _('Units') }}</th>
+            <th class="num">{{ _('Value') }}</th><th>{{ _('Status') }}</th><th>{{ _('Created') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for order in orders %}
+          <tr>
+            <td><a class="mono" href="{{ url_for('purchasing.detail', order_id=order.id) }}">{{ order.number }}</a></td>
+            <td>{{ order.supplier.name if order.supplier else '—' }}</td>
+            <td class="muted">{{ order.warehouse.code if order.warehouse else '—' }}</td>
+            <td class="nowrap muted">{{ order.expected_date|datestr }}</td>
+            <td class="num">{{ order.total_units|qty }}</td>
+            <td class="num">{{ order.total_cost|money }}</td>
+            <td>{{ status_badge(order.status) }}</td>
+            <td class="muted nowrap">{{ order.created_at|dt }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="8" class="muted">{{ _('No purchase orders match those filters.') }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% include 'partials/_pagination.html' %}
+  </div>
+</div>
+{% endblock %}

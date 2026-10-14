@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% from 'partials/_macros.html' import field, textarea, select %}
+
+{% block content %}
+<div class="card" style="max-width:640px">
+  <div class="card__head"><h2>{{ _('Transfer between warehouses') }}</h2></div>
+  <div class="card__body">
+    <p class="help">
+      {{ _('A transfer writes two ledger entries sharing one reference: an outbound from the source and an inbound at the destination. Unit cost is untouched.') }}
+      {{ _('Batch tracked products move the exact batches drawn from the source.') }}
+    </p>
+    <form method="post" class="stack">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {{ select('product_id', _('Product'), products, required=True, blank=_('Choose a product…')) }}
+      {{ select('source_id', _('From warehouse'), warehouses, required=True, blank=_('Source…')) }}
+      {{ select('destination_id', _('To warehouse'), warehouses, required=True, blank=_('Destination…')) }}
+      {{ field('quantity', _('Quantity to move'), 1, 'number', min='1', required=True) }}
+      {{ textarea('note', _('Note'), '', 3) }}
+      <div class="form-actions">
+        <button class="btn" type="submit">{{ _('Move stock') }}</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

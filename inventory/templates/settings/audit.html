@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="card">
+  <div class="card__body">
+    <form method="get" class="filters">
+      <label class="field field--grow">
+        <span class="field__label">{{ _('Search') }}</span>
+        <input class="field__input" type="search" name="q" value="{{ term }}"
+               placeholder="{{ _('Action, entity or details') }}">
+      </label>
+      <label class="field">
+        <span class="field__label">{{ _('Action') }}</span>
+        <select class="field__input" name="action">
+          <option value="">{{ _('All actions') }}</option>
+          {% for a in actions %}
+          <option value="{{ a }}" {{ 'selected' if selected_action == a }}>{{ a }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <div class="filters__actions">
+        <button class="btn btn--sm" type="submit">{{ _('Apply') }}</button>
+        <a class="btn btn--ghost btn--sm" href="{{ url_for('settings.audit') }}">{{ _('Reset') }}</a>
+      </div>
+    </form>
+  </div>
+
+  <div class="card__body card__body--flush">
+    <div class="table-wrap">
+      <table class="data">
+        <thead>
+          <tr>
+            <th>{{ _('When') }}</th><th>{{ _('User') }}</th><th>{{ _('Action') }}</th>
+            <th>{{ _('Entity') }}</th><th>{{ _('Details') }}</th><th>{{ _('IP address') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          <tr>
+            <td class="nowrap muted">{{ row.created_at|dt }}</td>
+            <td>{{ row.user.username if row.user else 'system' }}</td>
+            <td class="mono">{{ row.action }}</td>
+            <td class="muted">{{ row.entity or '—' }}{% if row.entity_id %} #{{ row.entity_id }}{% endif %}</td>
+            <td class="muted">{{ row.details or '—' }}</td>
+            <td class="muted mono">{{ row.ip_address or '—' }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" class="muted">{{ _('No activity logged against those filters.') }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% include 'partials/_pagination.html' %}
+  </div>
+</div>
+{% endblock %}

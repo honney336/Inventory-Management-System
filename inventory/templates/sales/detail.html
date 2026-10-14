@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+{% from 'partials/_macros.html' import status_badge, confirm_form %}
+
+{% block topbar_actions %}
+<a class="btn btn--ghost btn--sm" href="{{ url_for('sales.index') }}">{{ _('Back to list') }}</a>
+{% if order.can_complete and can_manage %}
+<a class="btn btn--sm" href="{{ url_for('sales.fulfil', order_id=order.id) }}">{{ _('Fulfil') }}</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="grid grid--2">
+  <section class="card">
+    <div class="card__head"><h2>{{ order.number }}</h2>{{ status_badge(order.status) }}</div>
+    <div class="card__body">
+      <dl class="kv">
+        <dt>{{ _('Customer') }}</dt><dd>{{ order.customer_name }}</dd>
+        <dt>{{ _('Email') }}</dt><dd>{{ order.customer_email or '—' }}</dd>
+        <dt>{{ _('Phone') }}</dt><dd>{{ order.customer_phone or '—' }}</dd>
+        <dt>{{ _('Ship from') }}</dt><dd>{{ order.warehouse.name if order.warehouse else '—' }}</dd>
+        <dt>{{ _('Reference') }}</dt><dd class="mono">{{ order.reference or '—' }}</dd>
+        <dt>{{ _('Placed') }}</dt>
+        <dd>
+          {{ order.created_at|dt }}
+          {% if order.created_by %}{{ _('by {name}').format(name=order.created_by.username) }}{% endif %}
+        </dd>
+        <dt>{{ _('Completed') }}</dt>
+        <dd>{{ order.completed_at|dt if order.completed_at else _('Not yet fulfilled') }}</dd>
+        <dt>{{ _('Units') }}</dt><dd>{{ order.total_units|qty }}</dd>
+        <dt>{{ _('Total') }}</dt><dd><strong>{{ order.total|money }}</strong></dd>
+      </dl>
+      {% if order.note %}<hr class="divider"><p class="muted">{{ order.note }}</p>{% endif %}
+
+      <div class="btn-row" style="margin-top:14px">
+        {% if order.can_complete and can_manage %}
+        <a class="btn btn--sm" href="{{ url_for('sales.fulfil', order_id=order.id) }}">{{ _('Fulfil order') }}</a>
+        {% endif %}
+        {% if can_manage and order.status != 'cancelled' %}
+        {{ confirm_form(url_for('sales.cancel', order_id=order.id), _('Cancel order'),
+                        _('Cancel this sales order?')) }}
+        {% endif %}
+        {% if can_manage and order.status == 'draft' %}
+        {{ confirm_form(url_for('sales.delete', order_id=order.id), _('Delete'),
+                        _('Delete this draft order permanently?')) }}
+        {% endif %}
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h2>{{ _('Lines') }}</h2></div>
+    <div class="card__body card__body--flush">
+      <div class="table-wrap">
+        <table class="line-items">
+          <thead>
+            <tr>
+              <th>{{ _('Product') }}</th><th class="num">{{ _('Ordered') }}</th>
+              <th class="num">{{ _('Fulfilled') }}</th><th class="num">{{ _('Unit price') }}</th>
+              <th class="num">{{ _('Total') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for line in order.lines %}
+            <tr>
+              <td>
+                <a href="{{ url_for('products.detail', product_id=line.product_id) }}">{{ line.product.name }}</a>
+                <div class="link-muted mono">{{ line.product.sku }}</div>
+                {% if line.product.track_batches %}<span class="badge">{{ _('Batches') }}</span>{% endif %}
+              </td>
+              <td class="num">{{ line.quantity|qty }}</td>
+              <td class="num">
+                {{ line.fulfilled_quantity|qty }}
+                {% if line.outstanding > 0 %}
+                  <div class="muted">{{ _('{count} open').format(count=line.outstanding|qty) }}</div>
+                {% endif %}
+              </td>
+              <td class="num">{{ line.unit_price|float|money }}</td>
+              <td class="num">{{ line.line_total|money }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="4" class="num"><strong>{{ _('Total') }}</strong></td>
+              <td class="num"><strong>{{ order.total|money }}</strong></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </section>
+</div>
+{% endblock %}

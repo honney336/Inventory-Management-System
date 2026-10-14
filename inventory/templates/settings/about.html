@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="grid grid--2">
+  <section class="card">
+    <div class="card__head"><h2>{{ _('System') }}</h2></div>
+    <div class="card__body">
+      <dl class="kv">
+        <dt>{{ _('Application') }}</dt><dd>{{ company }}</dd>
+        <dt>{{ _('Version') }}</dt><dd>{{ version }}</dd>
+        <dt>{{ _('Database') }}</dt><dd class="mono">{{ config.SQLALCHEMY_DATABASE_URI.split(':')[0] }}</dd>
+        <dt>{{ _('Tables') }}</dt><dd>{{ models|length }}</dd>
+        <dt>{{ _('Routes') }}</dt><dd>{{ routes|length }}</dd>
+        <dt>{{ _('Language') }}</dt><dd>{{ locales.get(active_locale, active_locale) }}</dd>
+      </dl>
+      <div class="btn-row" style="margin-top:12px">
+        <a class="btn btn--ghost btn--sm" href="{{ url_for('reports.index') }}">{{ _('Reports') }}</a>
+        <a class="btn btn--ghost btn--sm" href="{{ url_for('scan.index') }}">{{ _('Scan desk') }}</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h2>{{ _('Tables') }}</h2></div>
+    <div class="card__body">
+      <div class="btn-row">
+        {% for table in models %}<span class="tag mono">{{ table }}</span>{% endfor %}
+      </div>
+    </div>
+  </section>
+</div>
+
+<section class="card">
+  <div class="card__head"><h2>{{ _('Registered routes') }}</h2></div>
+  <div class="card__body card__body--flush">
+    <div class="table-wrap">
+      <table class="data">
+        <thead><tr><th>{{ _('Rule') }}</th><th>{{ _('Methods') }}</th><th>{{ _('Endpoint') }}</th></tr></thead>
+        <tbody>
+          {% for rule in routes %}
+          <tr>
+            <td class="mono">{{ rule }}</td>
+            <td>{{ rule.methods|reject('in', ['HEAD', 'OPTIONS'])|sort|join(', ') }}</td>
+            <td class="muted mono">{{ rule.endpoint }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{% endblock %}

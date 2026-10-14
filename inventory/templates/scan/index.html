@@ -1,0 +1,196 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="scan-layout">
+  <section class="card">
+    <div class="card__head">
+      <h2>{{ _('Scan a barcode') }}</h2>
+      <button class="btn btn--ghost btn--sm" type="button" id="toggleCamera"
+              data-start-label="{{ _('Start camera') }}"
+              data-stop-label="{{ _('Stop camera') }}"
+              data-offline-label="{{ _('Camera needs internet') }}">{{ _('Start camera') }}</button>
+    </div>
+    <div class="card__body">
+      <div id="reader" hidden></div>
+
+      <label class="field">
+        <span class="field__label">{{ _('Warehouse') }}</span>
+        <select class="field__input" name="warehouse_id" id="warehouseSelect">
+          {% for w in warehouses %}
+          <option value="{{ w.code }}" data-id="{{ w.id }}">{{ w.code }} · {{ w.name }}</option>
+          {% endfor %}
+        </select>
+        <span class="field__hint">{{ _('Used by the quick receive and issue buttons.') }}</span>
+      </label>
+
+      <form method="get" class="stack" id="manualForm">
+        <label class="field">
+          <span class="field__label">{{ _('Barcode or SKU') }}</span>
+          <input class="field__input" type="text" name="code" id="codeInput"
+                 placeholder="5012345678900" autocomplete="off" autofocus>
+        </label>
+        <div class="form-actions">
+          <button class="btn" type="submit">{{ _('Look up') }}</button>
+        </div>
+      </form>
+
+      <p class="help" style="margin-top:14px">
+        {{ _('Scanners act like a keyboard: click the box once and scan. Results appear next to this card with quick receive and issue buttons.') }}
+      </p>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head">
+      <h2>{{ _('Result') }}</h2>
+      <span id="resultState" class="muted" style="font-size:.8rem">{{ _('waiting for a scan') }}</span>
+    </div>
+    <div class="card__body scan-result" id="result">
+      <p class="muted">{{ _('Nothing scanned yet.') }}</p>
+    </div>
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var input = document.getElementById('codeInput');
+  var result = document.getElementById('result');
+  var state = document.getElementById('resultState');
+  var reader = document.getElementById('reader');
+  var toggle = document.getElementById('toggleCamera');
+  var warehouseSelect = document.getElementById('warehouseSelect');
+  var scanner = null;
+
+  var strings = {
+    looking: {{ _('looking up {code}…')|tojson }},
+    receive: {{ _('Receive')|tojson }},
+    issue: {{ _('Issue')|tojson }},
+    quantityOut: {{ _('Quantity to issue:')|tojson }},
+    quantityIn: {{ _('Quantity to receive:')|tojson }},
+    onHand: {{ _('on hand {count}')|tojson }},
+    open: {{ _('Open product')|tojson }},
+    noMatch: {{ _('No match')|tojson }}
+  };
+
+  function csrf() {
+    var field = document.querySelector('input[name="csrf_token"]');
+    return field ? field.value : '';
+  }
+
+  function move(productId, direction) {
+    var option = warehouseSelect.options[warehouseSelect.selectedIndex];
+    var quantity = prompt(direction === 'out' ? strings.quantityOut : strings.quantityIn, '1');
+    if (quantity === null) return;
+
+    fetch({{ url_for('scan.move')|tojson }}, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
+      body: JSON.stringify({
+        product_id: productId,
+        warehouse_id: option ? parseInt(option.dataset.id, 10) : null,
+        direction: direction,
+        quantity: parseInt(quantity, 10) || 0,
+        reference: 'SCAN'
+      })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.ok) {
+          state.textContent = data.message;
+          lookup(input.value.trim());
+        } else {
+          state.textContent = data.error || '';
+        }
+      })
+      .catch(function () { state.textContent = ''; });
+  }
+
+  function render(data) {
+    state.textContent = data.sku + ' · ' + strings.onHand.replace('{count}', data.on_hand);
+
+    var rows = '';
+    Object.keys(data.by_warehouse || {}).forEach(function (code) {
+      rows += '<div class="bar-item"><span>' + code + '</span>' +
+              '<span class="bar-item__track"></span>' +
+              '<span class="bar-item__value">' + data.by_warehouse[code] + '</span></div>';
+    });
+
+    result.innerHTML =
+      '<dl class="kv">' +
+        '<dt>' + {{ _('Product')|tojson }} + '</dt><dd>' + data.name + '</dd>' +
+        '<dt>' + {{ _('SKU')|tojson }} + '</dt><dd class="mono">' + data.sku + '</dd>' +
+        '<dt>' + {{ _('On hand')|tojson }} + '</dt><dd><strong>' + data.on_hand + '</strong> ' +
+          data.unit + ' (' + {{ _('par')|tojson }} + ' ' + data.reorder_point + ')</dd>' +
+        '<dt>' + {{ _('Sell price')|tojson }} + '</dt><dd>' + data.price.toFixed(2) + '</dd>' +
+      '</dl>' +
+      '<hr class="divider"><div class="bar-list">' + rows + '</div>' +
+      '<hr class="divider"><div class="btn-row">' +
+        '<button class="btn btn--success btn--sm" data-move="in">' + strings.receive + '</button>' +
+        '<button class="btn btn--danger btn--sm" data-move="out">' + strings.issue + '</button>' +
+        '<a class="btn btn--ghost btn--sm" href="' + data.detail_url + '">' + strings.open + '</a>' +
+      '</div>';
+
+    result.querySelectorAll('[data-move]').forEach(function (button) {
+      button.addEventListener('click', function () { move(data.id, button.dataset.move); });
+    });
+  }
+
+  function lookup(code) {
+    if (!code) return;
+    state.textContent = strings.looking.replace('{code}', code);
+    fetch({{ url_for('scan.lookup')|tojson }} + '?code=' + encodeURIComponent(code))
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+      .then(function (payload) {
+        if (payload.ok && payload.data.ok) {
+          render(payload.data);
+        } else {
+          state.textContent = payload.data.error || strings.noMatch;
+          result.innerHTML = '<p class="muted">' + (payload.data.error || strings.noMatch) + '</p>';
+        }
+      })
+      .catch(function () { state.textContent = ''; });
+  }
+
+  document.getElementById('manualForm').addEventListener('submit', function (event) {
+    event.preventDefault();
+    lookup(input.value.trim());
+  });
+
+  if (window.Html5Qrcode) {
+    toggle.addEventListener('click', function () {
+      if (scanner) {
+        scanner.stop().then(function () {
+          reader.hidden = true;
+          scanner = null;
+          toggle.textContent = toggle.dataset.startLabel;
+        });
+        return;
+      }
+      reader.hidden = false;
+      scanner = new Html5Qrcode('reader');
+      scanner.start(
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: { width: 240, height: 140 } },
+        function (text) {
+          input.value = text;
+          lookup(text);
+        },
+        function () { return; }
+      ).then(function () {
+        toggle.textContent = toggle.dataset.stopLabel;
+      }).catch(function (err) {
+        state.textContent = err;
+        reader.hidden = true;
+        scanner = null;
+      });
+    });
+  } else {
+    toggle.disabled = true;
+    toggle.textContent = toggle.dataset.offlineLabel;
+  }
+});
+</script>
+{% endblock %}

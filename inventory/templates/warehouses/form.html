@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% from 'partials/_macros.html' import field, checkbox %}
+
+{% block content %}
+<form method="post" class="card" style="max-width:600px">
+  <div class="card__head"><h2>{{ _('Edit warehouse') if warehouse else _('New warehouse') }}</h2></div>
+  <div class="card__body stack">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-grid">
+      {{ field('code', _('Code'), request.form.get('code', warehouse.code if warehouse else ''),
+               'text', 'WH-MAIN', required=True) }}
+      {{ field('name', _('Name'), request.form.get('name', warehouse.name if warehouse else ''),
+               'text', 'Main Warehouse', required=True) }}
+    </div>
+    {{ field('location', _('Location'),
+             request.form.get('location', warehouse.location if warehouse else ''),
+             'text', 'Unit 4, Dock Road') }}
+    {{ checkbox('is_active', _('Active — available for receipts and transfers'),
+                warehouse.is_active if warehouse else true) }}
+    <div class="form-actions">
+      <button class="btn" type="submit">{{ _('Save') }}</button>
+      <a class="btn btn--ghost" href="{{ url_for('warehouses.index') }}">{{ _('Cancel') }}</a>
+    </div>
+  </div>
+</form>
+{% endblock %}

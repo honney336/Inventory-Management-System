@@ -1,0 +1,123 @@
+{% extends 'base.html' %}
+{% from 'partials/_macros.html' import status_badge, sort_header, empty_state %}
+
+{% block topbar_actions %}
+<a class="btn btn--ghost btn--sm" href="{{ url_for('products.export_csv') }}">{{ _('Export CSV') }}</a>
+<a class="btn btn--ghost btn--sm" href="{{ url_for('products.labels') }}">{{ _('Shelf labels') }}</a>
+{% if can_manage %}
+<a class="btn btn--ghost btn--sm" href="{{ url_for('products.import_csv') }}">{{ _('Import') }}</a>
+<a class="btn btn--sm" href="{{ url_for('products.create') }}">{{ _('New product') }}</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card__body">
+    <form method="get" class="filters">
+      <label class="field field--grow">
+        <span class="field__label">{{ _('Search') }}</span>
+        <input class="field__input" type="search" name="q" value="{{ term }}"
+               placeholder="{{ _('Name, SKU, barcode or category') }}">
+      </label>
+      <label class="field">
+        <span class="field__label">{{ _('Category') }}</span>
+        <select class="field__input" name="category">
+          <option value="">{{ _('All') }}</option>
+          {% for c in categories %}
+          <option value="{{ c.id }}" {{ 'selected' if category_id == c.id }}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="field">
+        <span class="field__label">{{ _('Supplier') }}</span>
+        <select class="field__input" name="supplier">
+          <option value="">{{ _('All') }}</option>
+          {% for s in suppliers %}
+          <option value="{{ s.id }}" {{ 'selected' if supplier_id == s.id }}>{{ s.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="field">
+        <span class="field__label">{{ _('Stock') }}</span>
+        <select class="field__input" name="stock">
+          <option value="all" {{ 'selected' if stock_filter == 'all' }}>{{ _('Any') }}</option>
+          <option value="in" {{ 'selected' if stock_filter == 'in' }}>{{ _('In stock') }}</option>
+          <option value="low" {{ 'selected' if stock_filter == 'low' }}>{{ _('Low') }}</option>
+          <option value="out" {{ 'selected' if stock_filter == 'out' }}>{{ _('Out of stock') }}</option>
+        </select>
+      </label>
+      <label class="field">
+        <span class="field__label">{{ _('State') }}</span>
+        <select class="field__input" name="status">
+          <option value="all" {{ 'selected' if status == 'all' }}>{{ _('All') }}</option>
+          <option value="active" {{ 'selected' if status == 'active' }}>{{ _('Active') }}</option>
+          <option value="inactive" {{ 'selected' if status == 'inactive' }}>{{ _('Inactive') }}</option>
+        </select>
+      </label>
+      <div class="filters__actions">
+        <button class="btn btn--sm" type="submit">{{ _('Apply') }}</button>
+        <a class="btn btn--ghost btn--sm" href="{{ url_for('products.index') }}">{{ _('Reset') }}</a>
+      </div>
+    </form>
+  </div>
+
+  <div class="card__body card__body--flush">
+    <div class="table-wrap">
+      <table class="data" id="productTable">
+        <thead>
+          <tr>
+            {{ sort_header(_('SKU'), 'sku', sort, direction) }}
+            {{ sort_header(_('Product'), 'name', sort, direction) }}
+            {{ sort_header(_('Category'), 'category', sort, direction) }}
+            <th>{{ _('Supplier') }}</th>
+            <th class="num">{{ _('Cost') }}</th>
+            <th class="num">{{ _('Price') }}</th>
+            <th class="num">{{ _('Margin') }}</th>
+            <th class="num">{{ _('On hand') }}</th>
+            <th class="num">{{ _('Value') }}</th>
+            <th>{{ _('Status') }}</th>
+            <th class="actions">{{ _('Actions') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in products %}
+          <tr>
+            <td class="mono nowrap">{{ p.sku }}</td>
+            <td>
+              <a href="{{ url_for('products.detail', product_id=p.id) }}">{{ p.name }}</a>
+              {% if p.barcode %}<div class="link-muted mono">{{ p.barcode }}</div>{% endif %}
+              {% if p.track_batches %}<span class="badge">{{ _('Batches') }}</span>{% endif %}
+            </td>
+            <td class="muted">{{ p.category.name if p.category else '—' }}</td>
+            <td class="muted">{{ p.supplier.name if p.supplier else '—' }}</td>
+            <td class="num">{{ p.cost|float|money }}</td>
+            <td class="num">{{ p.price|float|money }}</td>
+            <td class="num">{{ p.margin_percent }}%</td>
+            <td class="num">{{ p.quantity|qty }} <span class="muted">{{ p.unit }}</span></td>
+            <td class="num">{{ p.stock_value|money }}</td>
+            <td>
+              {{ status_badge(p.stock_status) }}
+              {% if not p.is_active %}<span class="badge">{{ _('archived') }}</span>{% endif %}
+            </td>
+            <td class="actions">
+              <span class="row-actions">
+                <a class="btn btn--ghost btn--sm" href="{{ url_for('products.detail', product_id=p.id) }}">{{ _('View') }}</a>
+                {% if can_manage %}
+                <a class="btn btn--ghost btn--sm" href="{{ url_for('products.edit', product_id=p.id) }}">{{ _('Edit') }}</a>
+                {% endif %}
+              </span>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="12">
+            {{ empty_state(_('No products matched those filters.'), _('Try clearing the search box or adding a product.')) }}
+          </td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% include 'partials/_pagination.html' %}
+  </div>
+</div>
+{% endblock %}

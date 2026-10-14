@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+
+{% set DESCRIPTIONS = {
+  'valuation': _('What stock is on the shelf, valued at cost and at retail.'),
+  'low-stock': _('Everything at or below its reorder point, with the money needed to restock.'),
+  'abc': _('Consumption value split into A, B and C classes to guide buying effort.'),
+  'ageing': _('How long remaining stock has sat without an outbound movement.'),
+  'dead-stock': _('Active products with no outbound movement in the window.'),
+  'expiry': _('Batch tracked stock that is expired or close to its expiry date.'),
+  'reorder': _('Reorder points calculated from real usage instead of a guess.'),
+  'suppliers': _('Purchase volume and spend by supplier.'),
+  'audit': _('The raw movement ledger, plus every stock adjustment.')
+} %}
+
+{% block content %}
+<div class="grid grid--3">
+  {% for key, meta in reports.items() %}
+  <a class="card" href="{{ url_for('reports.show', report_key=key) }}" style="text-decoration:none;color:inherit">
+    <div class="card__body">
+      <h2 style="margin-bottom:6px">{{ meta.title }}</h2>
+      <p class="muted" style="font-size:.84rem;margin-bottom:10px">{{ DESCRIPTIONS.get(key, '') }}</p>
+      <span class="badge">{{ _('{count} rows').format(count=stats.get(key, 0)) }}</span>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% endblock %}
